@@ -1,30 +1,39 @@
 const express = require('express');
 const path = require('path');
 const app = express();
+const port = 3000;
 
 // Helper function to set GLB MIME type
-const setGLBHeaders = (res, filePath) => {
-    if (filePath.endsWith('.glb')) {
-        res.set('Content-Type', 'model/gltf-binary');
+function setGLBHeaders(res, path) {
+    if (path.endsWith('.glb')) {
+        res.setHeader('Content-Type', 'model/gltf-binary');
     }
-};
+}
 
-// Serve static files from the dist directory with proper MIME types
-app.use(express.static('dist', {
+// Serve static files from the public directory
+app.use(express.static('public', {
     setHeaders: setGLBHeaders
 }));
 
-// Serve static files from the public directory with proper MIME types
-app.use('/', express.static('public', {
+// Serve models from the public/models directory directly
+app.use('/models', express.static(path.join(__dirname, 'public', 'models'), {
     setHeaders: setGLBHeaders
 }));
 
 // For any other route, serve the index.html
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+// Start the server
+const server = app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+    console.log(`Open your browser and navigate to http://localhost:${port}`);
+}).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${port} is already in use. The server is likely already running.`);
+        console.log(`Open your browser and navigate to http://localhost:${port}`);
+    } else {
+        console.error('Server error:', err);
+    }
 }); 

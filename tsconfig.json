@@ -11,6 +11,6 @@
     "rootDir": "./src",
     "lib": ["dom", "es6"]
   },
-  "include": ["src/**/*"],
+  "include": [],
   "exclude": ["node_modules"]
 } 

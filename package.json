@@ -15,7 +15,8 @@
     "@babylonjs/loaders": "^6.38.1",
     "@babylonjs/materials": "^6.38.1",
     "ammo.js": "^0.0.10",
-    "cannon": "^0.6.2"
+    "cannon": "^0.6.2",
+    "yuka": "^0.7.8"
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.1.2",

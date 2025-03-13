@@ -4,7 +4,10 @@
   "description": "A 3D FPS game using Babylon.js",
   "scripts": {
     "start": "parcel index.html",
-    "build": "parcel build index.html"
+    "build": "parcel build index.html",
+    "watch": "parcel watch index.html",
+    "serve": "node server.js",
+    "dev": "npm run build && npm run serve"
   },
   "dependencies": {
     "@babylonjs/core": "^6.38.1",
@@ -15,7 +18,11 @@
     "cannon": "^0.6.2"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.1.2",
+    "@parcel/transformer-raw": "^2.13.3",
     "@types/cannon": "^0.1.12",
+    "@types/express": "^5.0.0",
+    "express": "^4.21.2",
     "parcel": "^2.11.0",
     "typescript": "^5.3.3"
   }

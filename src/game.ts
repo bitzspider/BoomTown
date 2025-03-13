@@ -95,24 +95,14 @@ class Game {
     }
 
     private async initializeEnemyManager(): Promise<void> {
+        console.log("Starting enemy model preload...");
         try {
-            console.log("Starting enemy model preload...");
-            await Enemy.preloadModel(this.scene);
-            console.log("Enemy model preloaded successfully");
-            
-            // Initialize enemy manager
-            this.enemyManager = new EnemyManager(this.scene, {
-                maxEnemies: 5,
-                spawnInterval: 5000,
-                boundaryLimit: 50
-            });
-            
-            // Add enemy manager update to render loop
-            this.scene.registerBeforeRender(() => {
-                this.enemyManager.update();
-            });
+            const enemy = new Enemy(this.scene, this.playerBox.position);
+            await enemy.preloadModel();
+            // Store the enemy instance or do whatever you need with it
         } catch (error) {
             console.error("Failed to initialize enemy manager:", error);
+            throw error;
         }
     }
 

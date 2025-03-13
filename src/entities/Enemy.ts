@@ -27,29 +27,60 @@ export class Enemy {
         this.spawn(position);
     }
 
-    // Static method to preload the model
-    public static async preloadModel(scene: Scene): Promise<void> {
+    async preloadModel(): Promise<void> {
+        console.log('Starting model preload...');
+        
         try {
-            console.log("Starting model preload...");
+            // First try to fetch the file directly to verify it's accessible
+            const modelPath = '/static/Character_Enemy.glb';
+            console.log('Attempting direct fetch of:', modelPath);
             
-            // Configure scene loader
-            SceneLoader.ShowLoadingScreen = false;
-            
-            // Load the model
+            const response = await fetch(modelPath);
+            console.log('Fetch response:', {
+                status: response.status,
+                statusText: response.statusText,
+                contentType: response.headers.get('content-type'),
+                contentLength: response.headers.get('content-length')
+            });
+
+            // Read and verify the file content
+            const buffer = await response.arrayBuffer();
+            const view = new DataView(buffer);
+            const magic = String.fromCharCode(
+                view.getUint8(0),
+                view.getUint8(1),
+                view.getUint8(2),
+                view.getUint8(3)
+            );
+            console.log('File analysis:', {
+                size: buffer.byteLength,
+                magic: magic,
+                firstFourBytes: Array.from(new Uint8Array(buffer.slice(0, 4)))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join(' ')
+            });
+
+            if (magic !== 'glTF') {
+                throw new Error(`Invalid GLB file - got magic "${magic}" instead of "glTF"`);
+            }
+
+            // Now try to load with Babylon
+            console.log('Loading model with Babylon...');
             const result = await SceneLoader.ImportMeshAsync(
-                undefined,  // meshNames (undefined means all)
-                "./assets/models/",  // rootUrl
-                "Character Soldier.glb",  // sceneFilename
-                scene  // scene
+                '',
+                '/static/',
+                'Character_Enemy.glb',
+                this.scene
             );
 
-            console.log("Model loaded successfully:", result);
-            this.loadedModel = {
-                meshes: result.meshes,
-                animationGroups: result.animationGroups
-            };
+            this.mesh = result.meshes[0];
+            console.log('Model loaded successfully:', {
+                meshCount: result.meshes.length,
+                meshNames: result.meshes.map(m => m.name)
+            });
+
         } catch (error) {
-            console.error("Error during model preload:", error);
+            console.error('Error during model preload:', error);
             throw error;
         }
     }
@@ -68,7 +99,7 @@ export class Enemy {
             }
 
             // Clone the preloaded meshes
-            const meshes = Enemy.loadedModel.meshes.map(mesh => mesh.clone("enemy_" + Math.random()));
+            const meshes = Enemy.loadedModel.meshes.map(mesh => mesh.clone("enemy_" + Math.random(), null, true));
             this.mesh = meshes[0];
 
             if (this.mesh) {

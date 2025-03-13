@@ -1,0 +1,8 @@
+{
+  "extends": "@parcel/config-default",
+  "transformers": {
+    "*.glb": ["@parcel/transformer-file"]
+  },
+  "namers": ["@parcel/namer-default"],
+  "reporters": ["@parcel/reporter-dev-server"]
+} 

@@ -1,0 +1,22 @@
+{
+  "name": "fps-game",
+  "version": "1.0.0",
+  "description": "A 3D FPS game using Babylon.js",
+  "scripts": {
+    "start": "parcel index.html",
+    "build": "parcel build index.html"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^6.38.1",
+    "@babylonjs/gui": "^6.38.1",
+    "@babylonjs/loaders": "^6.38.1",
+    "@babylonjs/materials": "^6.38.1",
+    "ammo.js": "^0.0.10",
+    "cannon": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/cannon": "^0.1.12",
+    "parcel": "^2.11.0",
+    "typescript": "^5.3.3"
+  }
+}

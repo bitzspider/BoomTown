@@ -1158,6 +1158,10 @@ function shootProjectile() {
     // Create projectile mesh
     const projectile = BABYLON.MeshBuilder.CreateSphere(projectileId, { diameter: 0.2 }, scene);
     
+    // Configure projectile for collision detection
+    projectile.isPickable = true;
+    projectile.checkCollisions = true;
+    
     // Position projectile at camera position + forward offset
     const forward = new BABYLON.Vector3(
         Math.sin(camera.rotation.y),
@@ -1312,6 +1316,9 @@ function updateProjectiles() {
         // Apply gravity to projectile
         projectile.direction.y += projectile.gravity;
         
+        // Store previous position for collision detection
+        const previousPosition = projectile.mesh.position.clone();
+        
         // Move projectile
         projectile.mesh.position.addInPlace(
             projectile.direction.scale(projectile.speed)
@@ -1354,12 +1361,26 @@ function updateProjectiles() {
                 console.log(`[PROJECTILE] Checking collisions with ${Object.keys(window.loadedEnemies).length} enemies`);
             }
             
+            // Create a ray for the projectile's movement path
+            const ray = new BABYLON.Ray(
+                previousPosition,
+                projectile.mesh.position.subtract(previousPosition).normalize(),
+                projectile.mesh.position.subtract(previousPosition).length()
+            );
+            
+            // For visualization during debugging (uncomment if needed)
+            // const rayHelper = new BABYLON.RayHelper(ray);
+            // rayHelper.show(scene, new BABYLON.Color3(1, 0, 0));
+            // setTimeout(() => rayHelper.dispose(), 100);
+            
+            let hitEnemy = false;
+            
             for (const enemyId in window.loadedEnemies) {
                 const enemy = window.loadedEnemies[enemyId];
                 if (!enemy) continue;
                 
-                // Check head hitbox collision
-                if (checkHitboxCollision(projectile.mesh.position, enemy.headHitbox)) {
+                // Check head hitbox collision using Babylon's intersectsMesh
+                if (enemy.headHitbox && projectile.mesh.intersectsMesh(enemy.headHitbox, false)) {
                     console.log(`Enemy ${enemyId} headshot!`);
                     const damage = 50; // More damage for headshots
                     
@@ -1374,11 +1395,12 @@ function updateProjectiles() {
                     createHitEffect(projectile.mesh.position.clone());
                     cleanupProjectile(projectile);
                     projectiles.splice(i, 1);
+                    hitEnemy = true;
                     break;
                 }
                 
-                // Check body hitbox collision
-                if (checkHitboxCollision(projectile.mesh.position, enemy.bodyHitbox)) {
+                // Check body hitbox collision using Babylon's intersectsMesh
+                if (!hitEnemy && enemy.bodyHitbox && projectile.mesh.intersectsMesh(enemy.bodyHitbox, false)) {
                     console.log(`Enemy ${enemyId} body shot!`);
                     const damage = 25; // Normal damage for body shots
                     
@@ -1393,9 +1415,51 @@ function updateProjectiles() {
                     createHitEffect(projectile.mesh.position.clone());
                     cleanupProjectile(projectile);
                     projectiles.splice(i, 1);
+                    hitEnemy = true;
                     break;
                 }
+                
+                // Alternative: Use ray casting for more precise collision detection
+                if (!hitEnemy && enemy.headHitbox) {
+                    const headHit = scene.pickWithRay(ray, mesh => mesh === enemy.headHitbox);
+                    if (headHit && headHit.hit) {
+                        console.log(`Enemy ${enemyId} headshot with ray!`);
+                        const damage = 50; // More damage for headshots
+                        
+                        if (window.handleEnemyHit) {
+                            const hitDirection = projectile.direction.clone();
+                            window.handleEnemyHit(enemyId, damage, hitDirection);
+                        }
+                        
+                        createHitEffect(headHit.pickedPoint);
+                        cleanupProjectile(projectile);
+                        projectiles.splice(i, 1);
+                        hitEnemy = true;
+                        break;
+                    }
+                }
+                
+                if (!hitEnemy && enemy.bodyHitbox) {
+                    const bodyHit = scene.pickWithRay(ray, mesh => mesh === enemy.bodyHitbox);
+                    if (bodyHit && bodyHit.hit) {
+                        console.log(`Enemy ${enemyId} body shot with ray!`);
+                        const damage = 25; // Normal damage for body shots
+                        
+                        if (window.handleEnemyHit) {
+                            const hitDirection = projectile.direction.clone();
+                            window.handleEnemyHit(enemyId, damage, hitDirection);
+                        }
+                        
+                        createHitEffect(bodyHit.pickedPoint);
+                        cleanupProjectile(projectile);
+                        projectiles.splice(i, 1);
+                        hitEnemy = true;
+                        break;
+                    }
+                }
             }
+            
+            if (hitEnemy) continue;
         }
         
         // Remove projectile if it's too old

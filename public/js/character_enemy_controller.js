@@ -182,6 +182,12 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         headHitbox.material = headMaterial;
         bodyHitbox.material = bodyMaterial;
         
+        // Configure hitboxes for collision detection
+        headHitbox.isPickable = true;
+        bodyHitbox.isPickable = true;
+        headHitbox.checkCollisions = true;
+        bodyHitbox.checkCollisions = true;
+        
         // Make hitboxes children of enemy transform so they follow movement
         headHitbox.parent = enemyTransform;
         bodyHitbox.parent = enemyTransform;
@@ -615,6 +621,10 @@ function enemyShootAtPlayer(enemyId) {
     // Create projectile
     const projectileId = "enemyProjectile_" + Date.now();
     const projectile = BABYLON.MeshBuilder.CreateSphere(projectileId, { diameter: 0.2 }, scene);
+    
+    // Configure projectile for collision detection
+    projectile.isPickable = true;
+    projectile.checkCollisions = true;
     
     // Position projectile at enemy position + offset
     projectile.position = new BABYLON.Vector3(

@@ -9,6 +9,17 @@ var camera;
 var dirLight;
 var hemisphericLight;
 
+// Debug HUD variables
+var debugHUDVisible = false;
+var showHitboxes = true;
+var showWaypoints = true;
+var showHitPoints = true;
+
+// Waypoint HUD variables
+var waypointHUDVisible = false;
+var showPathLines = true;
+var highlightCurrentWaypoint = true;
+
 // Make scene globally accessible
 window.scene = scene;
 
@@ -43,6 +54,7 @@ const keys = {
 // Mouse control
 var mouseSensitivity = 0.002;
 var isPointerLocked = false;
+var pointerLockPaused = false;
 
 // Shooting variables
 var canShoot = true;
@@ -85,6 +97,169 @@ window.MAP_BOUNDARIES = {
 
 // Ammo pickups
 var ammoPickups = [];
+
+// Create waypoint HUD
+function createWaypointHUD() {
+    console.log("Creating waypoint HUD");
+    
+    // Remove any existing waypoint HUD
+    const existingHUD = document.getElementById('waypointHUD');
+    if (existingHUD) {
+        existingHUD.remove();
+    }
+    
+    // Create waypoint HUD container
+    const waypointHUD = document.createElement('div');
+    waypointHUD.id = 'waypointHUD';
+    waypointHUD.style.position = 'absolute';
+    waypointHUD.style.top = '50px';
+    waypointHUD.style.left = '20px';
+    waypointHUD.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    waypointHUD.style.color = 'white';
+    waypointHUD.style.padding = '15px';
+    waypointHUD.style.borderRadius = '5px';
+    waypointHUD.style.fontFamily = 'Arial, sans-serif';
+    waypointHUD.style.zIndex = '1000';
+    waypointHUD.style.display = waypointHUDVisible ? 'block' : 'none';
+    waypointHUD.style.minWidth = '200px';
+    
+    // Create title
+    const title = document.createElement('h3');
+    title.textContent = 'Waypoint Options';
+    title.style.margin = '0 0 10px 0';
+    title.style.color = '#ff6600';
+    waypointHUD.appendChild(title);
+    
+    // Create waypoints checkbox
+    const waypointsContainer = document.createElement('div');
+    waypointsContainer.style.margin = '10px 0';
+    
+    const waypointsCheckbox = document.createElement('input');
+    waypointsCheckbox.type = 'checkbox';
+    waypointsCheckbox.id = 'showWaypoints';
+    waypointsCheckbox.checked = showWaypoints;
+    
+    const waypointsLabel = document.createElement('label');
+    waypointsLabel.htmlFor = 'showWaypoints';
+    waypointsLabel.textContent = 'Show Enemy Waypoints';
+    waypointsLabel.style.marginLeft = '5px';
+    waypointsLabel.style.cursor = 'pointer';
+    
+    waypointsContainer.appendChild(waypointsCheckbox);
+    waypointsContainer.appendChild(waypointsLabel);
+    waypointHUD.appendChild(waypointsContainer);
+    
+    // Create path lines checkbox
+    const pathLinesContainer = document.createElement('div');
+    pathLinesContainer.style.margin = '10px 0';
+    
+    const pathLinesCheckbox = document.createElement('input');
+    pathLinesCheckbox.type = 'checkbox';
+    pathLinesCheckbox.id = 'showPathLines';
+    pathLinesCheckbox.checked = showPathLines;
+    
+    const pathLinesLabel = document.createElement('label');
+    pathLinesLabel.htmlFor = 'showPathLines';
+    pathLinesLabel.textContent = 'Show Path Lines';
+    pathLinesLabel.style.marginLeft = '5px';
+    pathLinesLabel.style.cursor = 'pointer';
+    
+    pathLinesContainer.appendChild(pathLinesCheckbox);
+    pathLinesContainer.appendChild(pathLinesLabel);
+    waypointHUD.appendChild(pathLinesContainer);
+    
+    // Create current waypoint highlight checkbox
+    const highlightContainer = document.createElement('div');
+    highlightContainer.style.margin = '10px 0';
+    
+    const highlightCheckbox = document.createElement('input');
+    highlightCheckbox.type = 'checkbox';
+    highlightCheckbox.id = 'highlightCurrentWaypoint';
+    highlightCheckbox.checked = highlightCurrentWaypoint;
+    
+    const highlightLabel = document.createElement('label');
+    highlightLabel.htmlFor = 'highlightCurrentWaypoint';
+    highlightLabel.textContent = 'Highlight Current Waypoint';
+    highlightLabel.style.marginLeft = '5px';
+    highlightLabel.style.cursor = 'pointer';
+    
+    highlightContainer.appendChild(highlightCheckbox);
+    highlightContainer.appendChild(highlightLabel);
+    waypointHUD.appendChild(highlightContainer);
+    
+    // Add event listeners
+    waypointsCheckbox.addEventListener('change', function() {
+        showWaypoints = this.checked;
+        if (window.togglePathVisualization) {
+            window.togglePathVisualization(showWaypoints);
+        }
+    });
+    
+    pathLinesCheckbox.addEventListener('change', function() {
+        showPathLines = this.checked;
+        // Toggle only the path lines
+        for (const enemyId in window.pathVisualization) {
+            const path = window.pathVisualization[enemyId];
+            if (path && path.lines) {
+                path.lines.isVisible = showPathLines && showWaypoints;
+            }
+        }
+    });
+    
+    highlightCheckbox.addEventListener('change', function() {
+        highlightCurrentWaypoint = this.checked;
+        console.log(`Highlight current waypoint: ${highlightCurrentWaypoint}`);
+    });
+    
+    // Add to document
+    document.body.appendChild(waypointHUD);
+    
+    return waypointHUD;
+}
+
+// Toggle waypoint HUD visibility
+function toggleWaypointHUD() {
+    console.log("toggleWaypointHUD called");
+    
+    // Get existing waypoint HUD or create a new one
+    let waypointHUD = document.getElementById('waypointHUD');
+    if (!waypointHUD) {
+        console.log("Creating new waypoint HUD");
+        waypointHUD = createWaypointHUD();
+    }
+    
+    // Toggle visibility
+    waypointHUDVisible = !waypointHUDVisible;
+    console.log(`Waypoint HUD is now ${waypointHUDVisible ? 'visible' : 'hidden'}`);
+    
+    // Update display style
+    waypointHUD.style.display = waypointHUDVisible ? 'block' : 'none';
+    
+    // Force the HUD to be visible if it should be
+    if (waypointHUDVisible) {
+        waypointHUD.style.display = 'block';
+        waypointHUD.style.zIndex = '1000';
+        
+        // Ensure the HUD is in the DOM
+        if (!document.body.contains(waypointHUD)) {
+            document.body.appendChild(waypointHUD);
+        }
+        
+        console.log("Waypoint HUD should now be visible");
+        
+        // Pause the game when showing the HUD
+        if (!gamePaused) {
+            pauseGame(false);
+        }
+    } else {
+        // Resume the game when hiding the HUD
+        if (gamePaused && !debugHUDVisible) {
+            resumeGame();
+        }
+    }
+    
+    return waypointHUDVisible;
+}
 
 // Initialize the game after all declarations
 function initializeGame() {
@@ -163,6 +338,17 @@ function startGame() {
     if (playerMesh) {
         playerMesh.position.y = playerHeight / 2;
         console.log("Player position reset to ground level:", playerMesh.position);
+        
+        // Reset camera position and rotation
+        if (camera) {
+            camera.position = new BABYLON.Vector3(
+                playerMesh.position.x,
+                playerMesh.position.y + (playerHeight / 2) - 0.2,
+                playerMesh.position.z
+            );
+            camera.rotation.x = 0; // Ensure camera is level (not looking down)
+            console.log("Camera reset to level position:", camera.position, "with rotation:", camera.rotation);
+        }
     }
     
     // Update HUD
@@ -246,15 +432,152 @@ function setupPauseMenu() {
             if (gamePaused) {
                 resumeGame();
             } else {
-                pauseGame();
+                pauseGame(true);
             }
         }
     });
 }
 
+// Create debug HUD
+function createDebugHUD() {
+    let debugHUD = document.getElementById('debugHUD');
+    if (!debugHUD) {
+        debugHUD = document.createElement('div');
+        debugHUD.id = 'debugHUD';
+        debugHUD.style.position = 'absolute';
+        debugHUD.style.top = '50px';
+        debugHUD.style.left = '20px';
+        debugHUD.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        debugHUD.style.color = 'white';
+        debugHUD.style.padding = '15px';
+        debugHUD.style.borderRadius = '5px';
+        debugHUD.style.fontFamily = 'Arial, sans-serif';
+        debugHUD.style.zIndex = '1000';
+        debugHUD.style.display = 'none';
+        debugHUD.style.minWidth = '200px';
+        document.body.appendChild(debugHUD);
+    }
+
+    // Clear existing content
+    debugHUD.innerHTML = '';
+
+    // Create title
+    const title = document.createElement('h3');
+    title.textContent = 'Debug Information';
+    title.style.margin = '0 0 10px 0';
+    title.style.color = '#ff6600';
+    debugHUD.appendChild(title);
+
+    // Create hitbox toggle
+    const hitboxContainer = document.createElement('div');
+    hitboxContainer.style.margin = '10px 0';
+
+    const hitboxCheckbox = document.createElement('input');
+    hitboxCheckbox.type = 'checkbox';
+    hitboxCheckbox.id = 'showHitboxes';
+    hitboxCheckbox.checked = showHitboxes;
+
+    const hitboxLabel = document.createElement('label');
+    hitboxLabel.htmlFor = 'showHitboxes';
+    hitboxLabel.textContent = 'Show Hitboxes';
+    hitboxLabel.style.marginLeft = '5px';
+    hitboxLabel.style.cursor = 'pointer';
+
+    hitboxContainer.appendChild(hitboxCheckbox);
+    hitboxContainer.appendChild(hitboxLabel);
+    debugHUD.appendChild(hitboxContainer);
+
+    // Create waypoint toggle
+    const waypointContainer = document.createElement('div');
+    waypointContainer.style.margin = '10px 0';
+
+    const waypointCheckbox = document.createElement('input');
+    waypointCheckbox.type = 'checkbox';
+    waypointCheckbox.id = 'showWaypoints';
+    waypointCheckbox.checked = showWaypoints;
+
+    const waypointLabel = document.createElement('label');
+    waypointLabel.htmlFor = 'showWaypoints';
+    waypointLabel.textContent = 'Show Waypoints';
+    waypointLabel.style.marginLeft = '5px';
+    waypointLabel.style.cursor = 'pointer';
+
+    waypointContainer.appendChild(waypointCheckbox);
+    waypointContainer.appendChild(waypointLabel);
+    debugHUD.appendChild(waypointContainer);
+
+    // Create hit points toggle
+    const hitPointsContainer = document.createElement('div');
+    hitPointsContainer.style.margin = '10px 0';
+
+    const hitPointsCheckbox = document.createElement('input');
+    hitPointsCheckbox.type = 'checkbox';
+    hitPointsCheckbox.id = 'showHitPoints';
+    hitPointsCheckbox.checked = showHitPoints;
+
+    const hitPointsLabel = document.createElement('label');
+    hitPointsLabel.htmlFor = 'showHitPoints';
+    hitPointsLabel.textContent = 'Show Hit Points';
+    hitPointsLabel.style.marginLeft = '5px';
+    hitPointsLabel.style.cursor = 'pointer';
+
+    hitPointsContainer.appendChild(hitPointsCheckbox);
+    hitPointsContainer.appendChild(hitPointsLabel);
+    debugHUD.appendChild(hitPointsContainer);
+
+    // Add event listeners
+    hitboxCheckbox.addEventListener('change', function() {
+        showHitboxes = this.checked;
+        updateHitboxVisibility();
+    });
+
+    waypointCheckbox.addEventListener('change', function() {
+        showWaypoints = this.checked;
+        if (window.togglePathVisualization) {
+            window.togglePathVisualization(showWaypoints);
+        }
+    });
+
+    hitPointsCheckbox.addEventListener('change', function() {
+        showHitPoints = this.checked;
+        // Add any hit points visualization logic here
+    });
+
+    // Add player position info
+    const positionInfo = document.createElement('div');
+    positionInfo.style.margin = '10px 0';
+    positionInfo.style.fontSize = '12px';
+    positionInfo.style.color = '#aaa';
+    positionInfo.id = 'playerPositionInfo';
+    debugHUD.appendChild(positionInfo);
+
+    // Add enemy count info
+    const enemyInfo = document.createElement('div');
+    enemyInfo.style.margin = '10px 0';
+    enemyInfo.style.fontSize = '12px';
+    enemyInfo.style.color = '#aaa';
+    enemyInfo.id = 'enemyCountInfo';
+    debugHUD.appendChild(enemyInfo);
+
+    return debugHUD;
+}
+
 // Pause the game
-function pauseGame() {
+function pauseGame(fromEscKey = false) {
+    console.log("Pausing game" + (fromEscKey ? " from ESC key" : ""));
     gamePaused = true;
+    window.gamePaused = true;
+    
+    // Show debug HUD when pausing
+    debugHUDVisible = true;
+    showHitboxes = true;
+    
+    // Create and show debug HUD
+    const debugHUD = createDebugHUD();
+    debugHUD.style.display = 'block';
+    
+    // Update hitbox visibility
+    updateHitboxVisibility();
     
     // Show pause menu
     const pauseMenu = document.getElementById("pauseMenu");
@@ -262,13 +585,65 @@ function pauseGame() {
         pauseMenu.style.display = "flex";
     }
     
-    // Exit pointer lock
-    document.exitPointerLock();
+    // Exit pointer lock if this was triggered by ESC key
+    if (fromEscKey) {
+        pointerLockPaused = true;
+        document.exitPointerLock();
+    }
+    
+    // Pause all animations
+    scene.animationGroups.forEach(animGroup => {
+        animGroup.pause();
+    });
+    
+    // Disable controls
+    keys.w = false;
+    keys.a = false;
+    keys.s = false;
+    keys.d = false;
+    keys.space = false;
+    isRunning = false;
+
+    // Update debug information
+    updateDebugInfo();
+}
+
+// Add function to update debug information
+function updateDebugInfo() {
+    if (!debugHUDVisible) return;
+
+    // Update player position info
+    const positionInfo = document.getElementById('playerPositionInfo');
+    if (positionInfo && playerMesh) {
+        positionInfo.textContent = `Player Position: X: ${playerMesh.position.x.toFixed(2)}, Y: ${playerMesh.position.y.toFixed(2)}, Z: ${playerMesh.position.z.toFixed(2)}`;
+    }
+
+    // Update enemy count info
+    const enemyInfo = document.getElementById('enemyCountInfo');
+    if (enemyInfo) {
+        const enemyCount = Object.keys(enemies).length;
+        enemyInfo.textContent = `Active Enemies: ${enemyCount}`;
+    }
 }
 
 // Resume the game
 function resumeGame() {
+    console.log("Resuming game");
     gamePaused = false;
+    window.gamePaused = false;
+    
+    // Hide debug HUD when resuming
+    debugHUDVisible = false;
+    showHitboxes = false;
+    
+    // Hide debug HUD
+    const debugHUD = document.getElementById('debugHUD');
+    if (debugHUD) {
+        debugHUD.style.display = 'none';
+    }
+    
+    // Update hitbox visibility
+    updateHitboxVisibility();
     
     // Hide pause menu
     const pauseMenu = document.getElementById("pauseMenu");
@@ -277,7 +652,14 @@ function resumeGame() {
     }
     
     // Request pointer lock
-    canvas.requestPointerLock();
+    if (canvas.requestPointerLock) {
+        canvas.requestPointerLock();
+    }
+    
+    // Resume all animations
+    scene.animationGroups.forEach(animGroup => {
+        animGroup.play();
+    });
 }
 
 // Call initialization after DOM is loaded
@@ -298,7 +680,7 @@ function createScene(engine, canvas) {
     
     // Create and position a free camera
     camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, playerHeight, 0), scene);
-    camera.setTarget(BABYLON.Vector3.Zero());
+    camera.rotation.x = 0; // Ensure camera is level (not looking down)
     camera.attachControl(canvas, true);
     
     // Disable camera movement with keys (we'll handle this ourselves)
@@ -465,6 +847,7 @@ function createPlayerMesh() {
         return;
     }
     
+    // Create the main player mesh (invisible)
     playerMesh = BABYLON.MeshBuilder.CreateBox("playerMesh", {
         width: 1,
         height: playerHeight,
@@ -480,14 +863,15 @@ function createPlayerMesh() {
     verticalVelocity = 0;
     isGrounded = true;
     
-    // Link camera to player mesh
+    // Position camera at player's eye level
     if (camera) {
         camera.position = new BABYLON.Vector3(
             playerMesh.position.x,
-            playerMesh.position.y + (playerHeight / 2) - 0.2, // Slightly below the top of the player mesh
+            playerMesh.position.y + (playerHeight / 2) - 0.2,
             playerMesh.position.z
         );
-        console.log("Camera positioned at:", camera.position);
+        camera.rotation.x = 0;
+        console.log("Camera positioned at:", camera.position, "with rotation:", camera.rotation);
     } else {
         console.error("Camera is not defined in createPlayerMesh");
     }
@@ -597,8 +981,21 @@ function setupInputHandlers(canvas, scene) {
             document.mozPointerLockElement === canvas ||
             document.webkitPointerLockElement === canvas) {
             isPointerLocked = true;
+            
+            // If game was paused due to pointer lock exit, resume it
+            if (gameStarted && gamePaused && !gameOver && pointerLockPaused) {
+                resumeGame();
+                pointerLockPaused = false;
+            }
         } else {
             isPointerLocked = false;
+            
+            // Only auto-pause if the game is running and not already paused
+            if (gameStarted && !gamePaused && !gameOver) {
+                console.log("Pointer lock exited, auto-pausing game");
+                pointerLockPaused = true;
+                pauseGame();
+            }
         }
     }
 }
@@ -670,8 +1067,8 @@ function updatePlayer() {
         playerMesh.position.y = playerHeight / 2;
         verticalVelocity = 0;
         isGrounded = true;
-        // Log when player hits ground
-        console.log("Player hit ground. Position reset to:", playerMesh.position.y);
+        // Log when player hits ground (this is noisy so for debugging only)
+        // console.log("Player hit ground. Position reset to:", playerMesh.position.y);
     }
     
     // Enforce map boundaries
@@ -928,134 +1325,80 @@ function updateProjectiles() {
             continue;
         }
         
-        // Check for collisions with enemies (only for player projectiles)
-        if (!projectile.isEnemyProjectile) {
-            let hitEnemy = false;
-            
-            // Debug: Log projectile position
-            console.log(`Projectile position: x=${projectile.mesh.position.x.toFixed(2)}, y=${projectile.mesh.position.y.toFixed(2)}, z=${projectile.mesh.position.z.toFixed(2)}`);
-            
-            // Check if loadedEnemies exists
-            if (!window.loadedEnemies) {
-                console.error("window.loadedEnemies is not defined!");
-            } else {
-                console.log(`Number of enemies to check: ${Object.keys(window.loadedEnemies).length}`);
-            }
-            
-            // Check each enemy in loadedEnemies (from enemy controller)
-            for (const enemyId in window.loadedEnemies) {
-                const enemyController = window.loadedEnemies[enemyId];
-                
-                // Skip if enemy doesn't exist
-                if (!enemyController) {
-                    console.warn(`Enemy ${enemyId} controller not found`);
-                    continue;
-                }
-                
-                // Get enemy position
-                const enemyPosition = enemyController.transform.position;
-                
-                // Debug: Log enemy position
-                console.log(`Enemy ${enemyId} position: x=${enemyPosition.x.toFixed(2)}, y=${enemyPosition.y.toFixed(2)}, z=${enemyPosition.z.toFixed(2)}`);
-                
-                // Calculate distance to enemy (ignoring Y axis for a wider hit area)
-                const dx = projectile.mesh.position.x - enemyPosition.x;
-                const dz = projectile.mesh.position.z - enemyPosition.z;
-                const distanceToEnemy = Math.sqrt(dx * dx + dz * dz);
-                
-                // Check if projectile is close enough to enemy (using a generous radius)
-                const hitRadius = 2.0; // Increased hit radius for easier hits
-                console.log(`Distance to enemy ${enemyId}: ${distanceToEnemy.toFixed(2)}, hit radius: ${hitRadius}`);
-                
-                if (distanceToEnemy < hitRadius) {
-                    console.log(`Projectile hit enemy ${enemyId} with distance ${distanceToEnemy.toFixed(2)}!`);
-                    
-                    // Create hit effect at the intersection point
-                    createHitEffect(projectile.mesh.position.clone());
-                    
-                    // Calculate damage
-                    const damage = 25; // Base damage
-                    
-                    // Get enemy from local tracking if it exists
-                    let enemy = enemies[enemyId];
-                    if (!enemy) {
-                        // Create entry if it doesn't exist
-                        enemy = enemies[enemyId] = {
-                            id: enemyId,
-                            health: 100,
-                            lastHitTime: 0,
-                            hitCooldown: 1000
-                        };
-                    }
-                    
-                    // Damage enemy
-                    enemy.health -= damage;
-                    enemy.lastHitTime = currentTime;
-                    
-                    console.log(`Hit enemy ${enemyId}! Health: ${enemy.health}`);
-                    
-                    // Calculate hit direction (from projectile to enemy)
-                    const hitDirection = new BABYLON.Vector3(
-                        enemyPosition.x - projectile.mesh.position.x,
-                        0, // Ignore Y component
-                        enemyPosition.z - projectile.mesh.position.z
-                    ).normalize(); // Direction from projectile to enemy
-                    
-                    // Call hit reaction if the function exists
-                    if (window.handleEnemyHit) {
-                        console.log(`Calling handleEnemyHit for enemy ${enemyId} with damage ${damage}`);
-                        window.handleEnemyHit(enemyId, damage, hitDirection);
-                    } else {
-                        console.error("window.handleEnemyHit is not defined!");
-                    }
-                    
-                    // Check if enemy is dead
-                    if (enemy.health <= 0) {
-                        handleEnemyDeath(enemyId);
-                    }
-                    
-                    // Remove projectile
-                    cleanupProjectile(projectile);
-                    projectiles.splice(i, 1);
-                    hitEnemy = true;
-                    break;
-                }
-            }
-            
-            if (hitEnemy) continue;
-        }
-        
         // Check for collisions with player (only for enemy projectiles)
-        if (projectile.isEnemyProjectile) {
-            const distanceToPlayer = BABYLON.Vector3.Distance(
-                projectile.mesh.position,
-                playerMesh.position
-            );
+        if (projectile.isEnemyProjectile && playerMesh) {
+            const dx = projectile.mesh.position.x - playerMesh.position.x;
+            const dy = projectile.mesh.position.y - (playerMesh.position.y + playerHeight/2);
+            const dz = projectile.mesh.position.z - playerMesh.position.z;
+            const distanceToPlayer = Math.sqrt(dx * dx + dy * dy + dz * dz);
             
-            if (distanceToPlayer < 1.5) { // Adjust hit radius as needed
-                // Create hit effect
+            if (distanceToPlayer < 1.0) {
+                console.log("Player hit!");
+                playerHealth -= 20; // Fixed damage amount
                 createHitEffect(playerMesh.position.clone());
-                
-                // Damage player
-                playerHealth -= 10; // Adjust damage as needed
-                lastHitTime = currentTime;
-                
-                // Update HUD
+                cleanupProjectile(projectile);
+                projectiles.splice(i, 1);
                 updateHUD();
-                
-                // Check if player is dead
                 if (playerHealth <= 0) {
                     handlePlayerDeath();
                 }
-                
-                // Remove projectile
-                cleanupProjectile(projectile);
-                projectiles.splice(i, 1);
                 continue;
             }
         }
         
-        // Remove projectile if it's been alive too long
+        // Check for collisions with enemies (only for player projectiles)
+        if (!projectile.isEnemyProjectile) {
+            // Log occasionally for debugging
+            if (Math.random() < 0.01) {
+                console.log(`[PROJECTILE] Player projectile at position: (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)})`);
+                console.log(`[PROJECTILE] Checking collisions with ${Object.keys(window.loadedEnemies).length} enemies`);
+            }
+            
+            for (const enemyId in window.loadedEnemies) {
+                const enemy = window.loadedEnemies[enemyId];
+                if (!enemy) continue;
+                
+                // Check head hitbox collision
+                if (checkHitboxCollision(projectile.mesh.position, enemy.headHitbox)) {
+                    console.log(`Enemy ${enemyId} headshot!`);
+                    const damage = 50; // More damage for headshots
+                    
+                    // Call hit reaction
+                    if (window.handleEnemyHit) {
+                        const hitDirection = projectile.direction.clone();
+                        window.handleEnemyHit(enemyId, damage, hitDirection);
+                    } else {
+                        console.error("window.handleEnemyHit function not found!");
+                    }
+                    
+                    createHitEffect(projectile.mesh.position.clone());
+                    cleanupProjectile(projectile);
+                    projectiles.splice(i, 1);
+                    break;
+                }
+                
+                // Check body hitbox collision
+                if (checkHitboxCollision(projectile.mesh.position, enemy.bodyHitbox)) {
+                    console.log(`Enemy ${enemyId} body shot!`);
+                    const damage = 25; // Normal damage for body shots
+                    
+                    // Call hit reaction
+                    if (window.handleEnemyHit) {
+                        const hitDirection = projectile.direction.clone();
+                        window.handleEnemyHit(enemyId, damage, hitDirection);
+                    } else {
+                        console.error("window.handleEnemyHit function not found!");
+                    }
+                    
+                    createHitEffect(projectile.mesh.position.clone());
+                    cleanupProjectile(projectile);
+                    projectiles.splice(i, 1);
+                    break;
+                }
+            }
+        }
+        
+        // Remove projectile if it's too old
         if (currentTime - projectile.createdTime > projectile.lifespan) {
             cleanupProjectile(projectile);
             projectiles.splice(i, 1);
@@ -1193,14 +1536,33 @@ function updateEnemies() {
         
         // Check for direct collision with player (melee attack)
         if (playerMesh) {
+            // Get the actual enemy position from the controller
+            const enemyController = window.loadedEnemies[enemyId];
+            if (!enemyController) {
+                console.warn(`Enemy controller not found for ID: ${enemyId}`);
+                continue;
+            }
+            
+            // Use the transform position from the controller instead of mesh position
+            const enemyPosition = enemyController.transform.position;
+            
+            // Debug log enemy positions
+            if (Math.random() < 0.01) { // Log occasionally
+                console.log(`[POSITION] Enemy ${enemyId} - ` +
+                           `Controller pos: (${enemyPosition.x.toFixed(2)}, ${enemyPosition.z.toFixed(2)}), ` +
+                           `Mesh pos: (${enemy.mesh.position.x.toFixed(2)}, ${enemy.mesh.position.y.toFixed(2)}, ${enemy.mesh.position.z.toFixed(2)}), ` +
+                           `Player pos: (${playerMesh.position.x.toFixed(2)}, ${playerMesh.position.y.toFixed(2)}, ${playerMesh.position.z.toFixed(2)})`);
+            }
+            
             const distanceToPlayer = BABYLON.Vector3.Distance(
-                enemy.mesh.position,
+                new BABYLON.Vector3(enemyPosition.x, 0, enemyPosition.z),
                 playerMesh.position
             );
             
             // If enemy is very close to player, do melee damage
-            if (distanceToPlayer < 2.5 && currentTime - lastHitTime > hitCooldown) {
-                console.log("Enemy melee attack!");
+            // Increased threshold from 2.5 to 3.5 to account for potential position discrepancies
+            if (distanceToPlayer < 3.5 && currentTime - lastHitTime > hitCooldown) {
+                console.log(`[MELEE] Enemy ${enemyId} melee attack at distance ${distanceToPlayer.toFixed(2)}!`);
                 playerHealth -= 10; // Melee damage
                 lastHitTime = currentTime;
                 
@@ -1221,13 +1583,22 @@ function updateEnemies() {
 
 // Check for ammo pickups
 function checkAmmoPickups(enemy) {
+    // Get the actual enemy position from the controller
+    const enemyController = window.loadedEnemies[enemy.id];
+    if (!enemyController) {
+        return;
+    }
+    
+    // Use the transform position from the controller
+    const enemyPosition = enemyController.transform.position;
+    
     // Check if enemy is near an ammo pickup
     for (let i = 0; i < ammoPickups.length; i++) {
         const pickup = ammoPickups[i];
         if (!pickup.active) continue;
         
         const distance = BABYLON.Vector3.Distance(
-            enemy.mesh.position,
+            new BABYLON.Vector3(enemyPosition.x, 0, enemyPosition.z),
             pickup.mesh.position
         );
         
@@ -1238,6 +1609,9 @@ function checkAmmoPickups(enemy) {
             
             // Create effect
             createPickupEffect(pickup.mesh.position);
+            
+            // Log pickup destruction
+            console.log(`[PICKUP] Enemy ${enemy.id} destroyed ammo pickup at distance ${distance.toFixed(2)}`);
         }
     }
 }
@@ -1766,4 +2140,96 @@ function checkCollision(position) {
     
     // No collision detected
     return false;
+}
+
+// Function to update hitbox visibility
+function updateHitboxVisibility() {
+    // Update player hitboxes
+    if (playerMesh) {
+        if (playerMesh.headHitbox) {
+            playerMesh.headHitbox.isVisible = showHitboxes;
+        }
+        if (playerMesh.bodyHitbox) {
+            playerMesh.bodyHitbox.isVisible = showHitboxes;
+        }
+    }
+    
+    // Update enemy hitboxes
+    if (window.loadedEnemies) {
+        for (const enemyId in window.loadedEnemies) {
+            const enemy = window.loadedEnemies[enemyId];
+            if (enemy) {
+                // Update collision box visibility
+                if (enemy.collisionBox) {
+                    enemy.collisionBox.isVisible = showHitboxes;
+                }
+                
+                // Update head and body hitboxes if they exist
+                if (enemy.headHitbox) {
+                    enemy.headHitbox.isVisible = showHitboxes;
+                }
+                if (enemy.bodyHitbox) {
+                    enemy.bodyHitbox.isVisible = showHitboxes;
+                }
+            }
+        }
+    }
+    
+    // Remove the connection between hitboxes and path visualization
+    // If you want to toggle path visualization, use the dedicated waypoints checkbox instead
+}
+
+// Add new function to check hitbox collisions
+function checkHitboxCollision(projectilePosition, hitbox) {
+    if (!hitbox) {
+        console.warn("Hitbox is null or undefined");
+        return false;
+    }
+    
+    // Get hitbox world position
+    const hitboxWorldPos = hitbox.getAbsolutePosition();
+    
+    // Get hitbox dimensions from its scaling
+    const hitboxScale = hitbox.scaling;
+    
+    // Get the original hitbox dimensions from when it was created
+    let hitboxWidth, hitboxHeight, hitboxDepth;
+    
+    // Check if this is a head or body hitbox based on the mesh name
+    if (hitbox.name.includes("head")) {
+        hitboxWidth = 0.4 * hitboxScale.x;  // Half of 0.8
+        hitboxHeight = 0.4 * hitboxScale.y; // Half of 0.8
+        hitboxDepth = 0.4 * hitboxScale.z;  // Half of 0.8
+    } else if (hitbox.name.includes("body")) {
+        hitboxWidth = 0.5 * hitboxScale.x;  // Half of 1.0
+        hitboxHeight = 0.75 * hitboxScale.y; // Half of 1.5
+        hitboxDepth = 0.5 * hitboxScale.z;  // Half of 1.0
+    } else {
+        // Default to a reasonable size if we can't determine the type
+        hitboxWidth = 0.5 * hitboxScale.x;
+        hitboxHeight = 0.75 * hitboxScale.y;
+        hitboxDepth = 0.5 * hitboxScale.z;
+    }
+    
+    // Calculate distances
+    const dx = Math.abs(projectilePosition.x - hitboxWorldPos.x);
+    const dy = Math.abs(projectilePosition.y - hitboxWorldPos.y);
+    const dz = Math.abs(projectilePosition.z - hitboxWorldPos.z);
+    
+    // Check if projectile is within hitbox bounds
+    const isHit = (
+        dx <= hitboxWidth &&
+        dy <= hitboxHeight &&
+        dz <= hitboxDepth
+    );
+    
+    // Log collision check occasionally (to avoid console spam)
+    if (Math.random() < 0.01 || isHit) {
+        console.log(`[HITBOX] Checking collision with ${hitbox.name}: ` +
+                   `Distance: (${dx.toFixed(2)}, ${dy.toFixed(2)}, ${dz.toFixed(2)}), ` +
+                   `Bounds: (${hitboxWidth.toFixed(2)}, ${hitboxHeight.toFixed(2)}, ${hitboxDepth.toFixed(2)}), ` +
+                   `Result: ${isHit ? 'HIT' : 'MISS'}`);
+    }
+    
+    return isHit;
 } 

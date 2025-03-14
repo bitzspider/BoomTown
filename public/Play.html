@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>BoomTown - Player Mode</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin-top: -10px;
+            margin-left: -10px;
+            color: white;
+            font-size: 20px;
+            pointer-events: none;
+            user-select: none;
+            text-align: center;
+            line-height: 20px;
+        }
+        #hud {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            pointer-events: none;
+            user-select: none;
+        }
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #menu h1 {
+            color: #ff6600;
+            font-size: 48px;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px #000000;
+        }
+        #menu p {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 30px;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .menu-button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #ff6600;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            transition: background-color 0.2s;
+        }
+        .menu-button:hover {
+            background-color: #ff8533;
+        }
+        .controls-list {
+            color: white;
+            text-align: left;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+        }
+        .controls-list li {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="crosshair">+</div>
+    <div id="hud">
+        Health: <span id="healthValue">100</span> | Ammo: <span id="ammoValue">30</span>
+    </div>
+    
+    <div id="menu">
+        <h1>BoomTown</h1>
+        <p>Welcome to BoomTown! Your mission is to survive against waves of enemies. Use your skills to defeat them before they defeat you!</p>
+        
+        <div class="controls-list">
+            <h3>Controls:</h3>
+            <ul>
+                <li>WASD - Move</li>
+                <li>Double-tap W - Run</li>
+                <li>SPACE - Jump</li>
+                <li>MOUSE - Look around</li>
+                <li>LEFT CLICK - Shoot</li>
+            </ul>
+        </div>
+        
+        <button id="startButton" class="menu-button">Start Game</button>
+    </div>
+    
+    <!-- Load BabylonJS -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    
+    <!-- Load Yuka -->
+    <script src="https://cdn.jsdelivr.net/npm/yuka@0.7.8/build/yuka.min.js"></script>
+    
+    <!-- Load our scripts -->
+    <script src="/js/character_config.js"></script>
+    <script src="/js/character_enemy_paths.js"></script>
+    <script src="/js/character_enemy_config.js"></script>
+    <script src="/js/character_enemy_controller.js"></script>
+    <script src="/js/player_main.js"></script>
+    
+    <script>
+        // Menu handling
+        document.getElementById('startButton').addEventListener('click', function() {
+            // Hide menu
+            document.getElementById('menu').style.display = 'none';
+            
+            // Start the game
+            if (typeof startGame === 'function') {
+                startGame();
+            }
+        });
+    </script>
+</body>
+</html> 

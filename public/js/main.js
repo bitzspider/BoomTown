@@ -235,7 +235,10 @@ function importModelAsync(model) {
         // Make sure the model is visible with proper lighting
         result.meshes.forEach(mesh => {
             if (mesh.material) {
-                mesh.material.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+                mesh.material.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+                mesh.material.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+                mesh.material.diffuseColor = new BABYLON.Color3(1, 1, 1);
+                mesh.material.alpha = 1.0;
                 mesh.receiveShadows = true;
             }
         });
@@ -306,25 +309,22 @@ function startFollowingPath(pathType) {
         return;
     }
     
-    // First, run to the starting point of the path
-    const startPoint = waypoints[0];
-    const distanceToStart = BABYLON.Vector3.Distance(playerTransform.position, startPoint);
+    // Calculate distance to each waypoint to find the closest one
+    let closestIndex = 0;
+    let closestDistance = Number.MAX_VALUE;
+    waypoints.forEach((waypoint, index) => {
+        const distance = BABYLON.Vector3.Distance(playerTransform.position, waypoint);
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = index;
+        }
+    });
     
-    console.log("Distance to start point:", distanceToStart);
+    // Start from the closest waypoint
+    aiCurrentPathIndex = closestIndex;
     
-    if (distanceToStart > 2) {
-        // Run to the starting point
-        console.log("Running to start point of path");
-        moveToPointWithAnimation(startPoint, runAnim);
-        
-        // After reaching the start point, begin following the path
-        aiPathUpdateInterval = setTimeout(() => {
-            followPathPoint();
-        }, 1000);
-    } else {
-        // Already at the start point, begin following the path
-        followPathPoint();
-    }
+    // Begin following the path
+    followPathPoint();
 }
 
 // Stop following the current path
@@ -337,30 +337,32 @@ function stopFollowingPath() {
 
 // Follow the next point in the path
 function followPathPoint() {
-    if (!aiEnabled || !aiCurrentPath || aiCurrentPathIndex >= aiCurrentPath.length) {
-        // Reset to the beginning of the path
-        aiCurrentPathIndex = 0;
-    }
+    if (!aiEnabled || !aiCurrentPath) return;
     
     // Get the current waypoint
-    const waypoint = pathToWaypoints(aiCurrentPath)[aiCurrentPathIndex];
+    const waypoints = pathToWaypoints(aiCurrentPath);
+    const currentWaypoint = waypoints[aiCurrentPathIndex];
     
     console.log("Following path point", aiCurrentPathIndex, "of", aiCurrentPath.length);
     
     // Move to the waypoint
-    moveToPointWithAnimation(waypoint, walkAnim);
+    moveToPointWithAnimation(currentWaypoint, walkAnim);
     
-    // Increment the path index
-    aiCurrentPathIndex++;
+    // Calculate distance to current waypoint
+    const distanceToWaypoint = BABYLON.Vector3.Distance(playerTransform.position, currentWaypoint);
     
-    // If we've reached the end of the path, loop back to the beginning
-    if (aiCurrentPathIndex >= aiCurrentPath.length) {
-        aiCurrentPathIndex = 0;
+    // If we're close enough to the current waypoint, move to the next one
+    if (distanceToWaypoint < 2) {
+        // Increment the path index
+        aiCurrentPathIndex = (aiCurrentPathIndex + 1) % aiCurrentPath.length;
+        
+        // Add some randomization to the timing to make movement more natural
+        const delay = 500 + Math.random() * 300; // 500-800ms delay
+        aiPathUpdateInterval = setTimeout(followPathPoint, delay);
+    } else {
+        // If we're not close enough yet, check again soon
+        aiPathUpdateInterval = setTimeout(followPathPoint, 200);
     }
-    
-    // Schedule the next point after a delay
-    const delay = 1000 + Math.random() * 500; // Add some randomness to the timing
-    aiPathUpdateInterval = setTimeout(followPathPoint, delay);
 }
 
 // Move to a point with a specific animation
@@ -371,20 +373,31 @@ function moveToPointWithAnimation(point, animation) {
     targetPosition = point.clone();
     targetPosition.y = playerTransform.position.y;
     
-    // Start moving
-    isMoving = true;
-    lastUpdateTime = performance.now();
+    // Calculate direction to target
+    const direction = targetPosition.subtract(playerTransform.position);
+    const distance = direction.length();
     
-    // Play the specified animation
-    playAnimation(animation);
-    
-    // Set the appropriate speed based on animation
-    if (animation === runAnim) {
-        currentSpeed = runSpeed;
-        aiState = "running";
-    } else {
-        currentSpeed = moveSpeed;
-        aiState = "walking";
+    // Only start moving if we're not too close
+    if (distance > 0.5) {
+        // Start moving - immediate state change
+        isMoving = true;
+        lastUpdateTime = performance.now();
+        
+        // Instant animation change
+        playAnimation(animation);
+        
+        // Set speed immediately - no acceleration
+        if (animation === runAnim) {
+            currentSpeed = runSpeed;
+            aiState = "running";
+        } else {
+            currentSpeed = moveSpeed;
+            aiState = "walking";
+        }
+        
+        // Calculate and apply initial rotation immediately
+        const targetAngle = Math.atan2(direction.x, direction.z);
+        player.rotation.y = targetAngle;
     }
 }
 
@@ -521,123 +534,37 @@ function updatePlayerMovement() {
     var deltaTime = (currentTime - lastUpdateTime) / 1000;
     lastUpdateTime = currentTime;
     
-    // Limit deltaTime to avoid huge jumps if the tab was inactive
-    if (deltaTime > 0.1) {
-        deltaTime = 0.1;
-    }
-    
     // Calculate direction to target
     var direction = targetPosition.subtract(playerTransform.position);
     direction.y = 0; // Keep movement on the ground plane
     var distance = direction.length();
     
-    // If we've reached the target, stop moving
+    // If we've reached the target (within a small threshold), stop immediately
     if (distance < 0.5) {
-        console.log("Reached destination");
         isMoving = false;
         playAnimation(idleAnim);
-        
-        // Don't set aiState to idle here, as we're following a path
-        // The path following logic will handle the next point
         return;
     }
     
-    // Normalize direction
+    // Normalize direction and apply full speed immediately
     direction.normalize();
     
-    // Calculate target angle - this is independent of camera
+    // Calculate target angle for instant rotation
     var targetAngle = Math.atan2(direction.x, direction.z);
     
-    // Get current rotation
-    var currentRotation = player.rotation.y;
+    // Instant rotation - no interpolation
+    player.rotation.y = targetAngle;
     
-    // Calculate the shortest angle difference
-    var angleDiff = targetAngle - currentRotation;
+    // Move at full speed - no acceleration
+    var movement = direction.scale(currentSpeed);
+    var newPosition = playerTransform.position.add(movement);
     
-    // Normalize to [-PI, PI]
-    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    // Clamp to map boundaries
+    newPosition.x = Math.max(mapBoundaries.minX + 2, Math.min(mapBoundaries.maxX - 2, newPosition.x));
+    newPosition.z = Math.max(mapBoundaries.minZ + 2, Math.min(mapBoundaries.maxZ - 2, newPosition.z));
     
-    // Apply smooth rotation with delta time
-    var rotationAmount = Math.sign(angleDiff) * 
-                         Math.min(Math.abs(angleDiff), turnSpeed * deltaTime * 60);
-    
-    player.rotation.y += rotationAmount;
-    
-    // Move in the direction we're facing, but invert it to fix backward movement
-    var forwardDirection = new BABYLON.Vector3(
-        -Math.sin(player.rotation.y),
-        0,
-        -Math.cos(player.rotation.y)
-    );
-    
-    // Apply movement
-    var movement = forwardDirection.scale(currentSpeed * deltaTime * 60);
-    var oldPosition = playerTransform.position.clone();
-    
-    // Calculate new position
-    var newPosition = oldPosition.add(movement);
-    
-    // Check if new position is within map boundaries
-    var hitBoundary = false;
-    var wallNormal = new BABYLON.Vector3(0, 0, 0);
-    
-    if (newPosition.x < mapBoundaries.minX + 2) {
-        newPosition.x = mapBoundaries.minX + 2;
-        hitBoundary = true;
-        wallNormal.x = 1; // Normal points right (away from left wall)
-    } else if (newPosition.x > mapBoundaries.maxX - 2) {
-        newPosition.x = mapBoundaries.maxX - 2;
-        hitBoundary = true;
-        wallNormal.x = -1; // Normal points left (away from right wall)
-    }
-    
-    if (newPosition.z < mapBoundaries.minZ + 2) {
-        newPosition.z = mapBoundaries.minZ + 2;
-        hitBoundary = true;
-        wallNormal.z = 1; // Normal points up (away from bottom wall)
-    } else if (newPosition.z > mapBoundaries.maxZ - 2) {
-        newPosition.z = mapBoundaries.maxZ - 2;
-        hitBoundary = true;
-        wallNormal.z = -1; // Normal points down (away from top wall)
-    }
-    
-    // Update position
+    // Apply new position immediately
     playerTransform.position = newPosition;
-    
-    // If we hit a boundary, handle it with our wall avoidance system
-    if (hitBoundary) {
-        console.log("HIT WALL - ACTIVATING WALL AVOIDANCE SYSTEM");
-        
-        // Stop current movement
-        isMoving = false;
-        
-        // Play idle animation
-        playAnimation(idleAnim);
-        
-        // Normalize the wall normal
-        wallNormal.normalize();
-        
-        // Generate an escape path using our wall avoidance system
-        const escapePath = generateWallEscapePath(playerTransform.position, wallNormal);
-        
-        // Follow the escape path, and when complete, resume normal path following
-        followEscapePath(escapePath, function() {
-            // After completing the escape path, resume normal path following
-            console.log("Escape complete, resuming normal path");
-            
-            // Skip to the next waypoint in the original path
-            aiCurrentPathIndex++;
-            
-            // If we've reached the end of the path, loop back to the beginning
-            if (aiCurrentPathIndex >= aiCurrentPath.length) {
-                aiCurrentPathIndex = 0;
-            }
-            
-            // Follow the next point in the original path
-            followPathPoint();
-        });
-    }
 }
 
 // Rotate the character to face a specific angle

@@ -11,36 +11,27 @@ var hemisphericLight;
 
 // Debug HUD variables
 var debugHUDVisible = false;
-var showHitboxes = true;
-var showWaypoints = true;
-var showHitPoints = true;
-
-// Waypoint HUD variables
-var waypointHUDVisible = false;
-var showPathLines = true;
-var highlightCurrentWaypoint = true;
 
 // Make scene globally accessible
 window.scene = scene;
 
 // Player & Navigation
 var playerMesh;
-var playerHeight = 1.8; // Player height in units
 var ground;
 var groundMat;
 
 // Movement variables
-var moveSpeed = 0.15;
-var runSpeed = 0.3;
-var jumpForce = 0.2;
-var gravity = -0.01;
+var moveSpeed = GameConfig.player.moveSpeed;
+var runSpeed = GameConfig.player.runSpeed;
+var jumpForce = GameConfig.player.jumpForce;
+var gravity = GameConfig.player.gravity;
 var isJumping = false;
 var isFalling = false;
 var verticalVelocity = 0;
 var isGrounded = true;
 var isRunning = false;
 var lastWKeyTime = 0;
-var doubleTapThreshold = 300; // ms
+var doubleTapThreshold = GameConfig.player.doubleTapThreshold; // ms
 
 // Key tracking
 const keys = {
@@ -52,13 +43,13 @@ const keys = {
 };
 
 // Mouse control
-var mouseSensitivity = 0.002;
+var mouseSensitivity = GameConfig.player.mouseSensitivity;
 var isPointerLocked = false;
 var pointerLockPaused = false;
 
 // Shooting variables
 var canShoot = true;
-var shootCooldown = 500; // ms
+var shootCooldown = GameConfig.weapons.shootCooldown; // ms
 var projectiles = [];
 var lastShootTime = 0;
 
@@ -66,18 +57,18 @@ var lastShootTime = 0;
 window.projectiles = projectiles;
 
 // Player stats
-var playerHealth = 100;
-var playerAmmo = 30;
-var maxAmmo = 100;
+var playerHealth = GameConfig.player.health;
+var playerAmmo = GameConfig.weapons.defaultAmmo;
+var maxAmmo = GameConfig.weapons.maxAmmo;
 var lastHitTime = 0;
-var hitCooldown = 1000; // 1 second cooldown between hits
+var hitCooldown = GameConfig.player.hitCooldown; // 1 second cooldown between hits
 
 // Enemy variables
 var enemies = {};
-var maxEnemies = 5;
-var enemySpawnInterval = 10000; // ms
+var maxEnemies = GameConfig.enemies.maxEnemies;
+var enemySpawnInterval = GameConfig.enemies.spawnInterval; // ms
 var lastEnemySpawnTime = 0;
-var enemyModels = ["Character_Enemy.glb"]; // List of available enemy models
+var enemyModels = GameConfig.enemies.models; // List of available enemy models
 
 // Obstacle tracking
 var obstacles = []; // Array to store obstacle meshes
@@ -88,19 +79,18 @@ var gamePaused = false;
 var gameOver = false;
 
 // Map boundaries - make it global by attaching to window
-window.MAP_BOUNDARIES = {
-    minX: -50,
-    maxX: 50,
-    minZ: -50,
-    maxZ: 50
-};
+window.MAP_BOUNDARIES = GameConfig.map.boundaries;
 
 // Ammo pickups
 var ammoPickups = [];
 
+
+// Make debugLog globally accessible
+window.debugLog = debugLog;
+
 // Create waypoint HUD
 function createWaypointHUD() {
-    console.log("Creating waypoint HUD");
+    debugLog("Creating waypoint HUD");
     
     // Remove any existing waypoint HUD
     const existingHUD = document.getElementById('waypointHUD');
@@ -137,7 +127,7 @@ function createWaypointHUD() {
     const waypointsCheckbox = document.createElement('input');
     waypointsCheckbox.type = 'checkbox';
     waypointsCheckbox.id = 'showWaypoints';
-    waypointsCheckbox.checked = showWaypoints;
+    waypointsCheckbox.checked = GameConfig.debug.showWaypoints;
     
     const waypointsLabel = document.createElement('label');
     waypointsLabel.htmlFor = 'showWaypoints';
@@ -156,7 +146,7 @@ function createWaypointHUD() {
     const pathLinesCheckbox = document.createElement('input');
     pathLinesCheckbox.type = 'checkbox';
     pathLinesCheckbox.id = 'showPathLines';
-    pathLinesCheckbox.checked = showPathLines;
+    pathLinesCheckbox.checked = GameConfig.debug.showPathLines;
     
     const pathLinesLabel = document.createElement('label');
     pathLinesLabel.htmlFor = 'showPathLines';
@@ -175,7 +165,7 @@ function createWaypointHUD() {
     const highlightCheckbox = document.createElement('input');
     highlightCheckbox.type = 'checkbox';
     highlightCheckbox.id = 'highlightCurrentWaypoint';
-    highlightCheckbox.checked = highlightCurrentWaypoint;
+    highlightCheckbox.checked = GameConfig.debug.highlightCurrentWaypoint;
     
     const highlightLabel = document.createElement('label');
     highlightLabel.htmlFor = 'highlightCurrentWaypoint';
@@ -189,26 +179,26 @@ function createWaypointHUD() {
     
     // Add event listeners
     waypointsCheckbox.addEventListener('change', function() {
-        showWaypoints = this.checked;
+        GameConfig.debug.showWaypoints = this.checked;
         if (window.togglePathVisualization) {
-            window.togglePathVisualization(showWaypoints);
+            window.togglePathVisualization(GameConfig.debug.showWaypoints);
         }
     });
     
     pathLinesCheckbox.addEventListener('change', function() {
-        showPathLines = this.checked;
+        GameConfig.debug.showPathLines = this.checked;
         // Toggle only the path lines
         for (const enemyId in window.pathVisualization) {
             const path = window.pathVisualization[enemyId];
             if (path && path.lines) {
-                path.lines.isVisible = showPathLines && showWaypoints;
+                path.lines.isVisible = GameConfig.debug.showPathLines && GameConfig.debug.showWaypoints;
             }
         }
     });
     
     highlightCheckbox.addEventListener('change', function() {
-        highlightCurrentWaypoint = this.checked;
-        console.log(`Highlight current waypoint: ${highlightCurrentWaypoint}`);
+        GameConfig.debug.highlightCurrentWaypoint = this.checked;
+        debugLog(`Highlight current waypoint: ${GameConfig.debug.highlightCurrentWaypoint}`);
     });
     
     // Add to document
@@ -219,18 +209,18 @@ function createWaypointHUD() {
 
 // Toggle waypoint HUD visibility
 function toggleWaypointHUD() {
-    console.log("toggleWaypointHUD called");
+    debugLog("toggleWaypointHUD called");
     
     // Get existing waypoint HUD or create a new one
     let waypointHUD = document.getElementById('waypointHUD');
     if (!waypointHUD) {
-        console.log("Creating new waypoint HUD");
+        debugLog("Creating new waypoint HUD");
         waypointHUD = createWaypointHUD();
     }
     
     // Toggle visibility
     waypointHUDVisible = !waypointHUDVisible;
-    console.log(`Waypoint HUD is now ${waypointHUDVisible ? 'visible' : 'hidden'}`);
+    debugLog(`Waypoint HUD is now ${waypointHUDVisible ? 'visible' : 'hidden'}`);
     
     // Update display style
     waypointHUD.style.display = waypointHUDVisible ? 'block' : 'none';
@@ -245,7 +235,7 @@ function toggleWaypointHUD() {
             document.body.appendChild(waypointHUD);
         }
         
-        console.log("Waypoint HUD should now be visible");
+        debugLog("Waypoint HUD should now be visible");
         
         // Pause the game when showing the HUD
         if (!gamePaused) {
@@ -263,7 +253,7 @@ function toggleWaypointHUD() {
 
 // Initialize the game after all declarations
 function initializeGame() {
-    console.log("Initializing game...");
+    debugLog("Initializing game...");
     
     // Get the canvas element
     canvas = document.getElementById("renderCanvas");
@@ -284,7 +274,7 @@ function initializeGame() {
         return;
     }
     
-    console.log("Scene initialized successfully");
+    debugLog("Scene initialized successfully");
     
     // Start the render loop
     engine.runRenderLoop(function () {
@@ -308,12 +298,12 @@ function initializeGame() {
     // Setup pause functionality
     setupPauseMenu();
     
-    console.log("Game initialization complete");
+    debugLog("Game initialization complete");
 }
 
 // Start the game
 function startGame() {
-    console.log("Starting game...");
+    debugLog("Starting game...");
     
     // Check if scene is initialized
     if (!scene) {
@@ -327,8 +317,8 @@ function startGame() {
     gameOver = false;
     
     // Reset player stats
-    playerHealth = 100;
-    playerAmmo = 30;
+    playerHealth = GameConfig.player.health;
+    playerAmmo = GameConfig.weapons.defaultAmmo;
     
     // Reset player physics
     verticalVelocity = 0;
@@ -336,18 +326,18 @@ function startGame() {
     
     // Ensure player is on the ground
     if (playerMesh) {
-        playerMesh.position.y = playerHeight / 2;
-        console.log("Player position reset to ground level:", playerMesh.position);
+        playerMesh.position.y = GameConfig.player.height / 2;
+        debugLog("Player position reset to ground level: " + JSON.stringify(playerMesh.position));
         
         // Reset camera position and rotation
         if (camera) {
             camera.position = new BABYLON.Vector3(
                 playerMesh.position.x,
-                playerMesh.position.y + (playerHeight / 2) - 0.2,
+                playerMesh.position.y + (GameConfig.player.height / 2) - 0.2,
                 playerMesh.position.z
             );
             camera.rotation.x = 0; // Ensure camera is level (not looking down)
-            console.log("Camera reset to level position:", camera.position, "with rotation:", camera.rotation);
+            debugLog("Camera reset to level position: " + JSON.stringify(camera.position) + " with rotation: " + JSON.stringify(camera.rotation));
         }
     }
     
@@ -371,12 +361,12 @@ function startGame() {
     // Spawn initial enemies
     spawnInitialEnemies();
     
-    console.log("Game started!");
+    debugLog("Game started!");
 }
 
 // Spawn initial enemies
 function spawnInitialEnemies() {
-    console.log("Spawning initial enemy...");
+    debugLog("Spawning initial enemy...");
     spawnEnemy();
 }
 
@@ -475,7 +465,7 @@ function createDebugHUD() {
     const hitboxCheckbox = document.createElement('input');
     hitboxCheckbox.type = 'checkbox';
     hitboxCheckbox.id = 'showHitboxes';
-    hitboxCheckbox.checked = showHitboxes;
+    hitboxCheckbox.checked = GameConfig.debug.showHitboxes;
 
     const hitboxLabel = document.createElement('label');
     hitboxLabel.htmlFor = 'showHitboxes';
@@ -494,7 +484,7 @@ function createDebugHUD() {
     const waypointCheckbox = document.createElement('input');
     waypointCheckbox.type = 'checkbox';
     waypointCheckbox.id = 'showWaypoints';
-    waypointCheckbox.checked = showWaypoints;
+    waypointCheckbox.checked = GameConfig.debug.showWaypoints;
 
     const waypointLabel = document.createElement('label');
     waypointLabel.htmlFor = 'showWaypoints';
@@ -513,7 +503,7 @@ function createDebugHUD() {
     const hitPointsCheckbox = document.createElement('input');
     hitPointsCheckbox.type = 'checkbox';
     hitPointsCheckbox.id = 'showHitPoints';
-    hitPointsCheckbox.checked = showHitPoints;
+    hitPointsCheckbox.checked = GameConfig.debug.showHitPoints;
 
     const hitPointsLabel = document.createElement('label');
     hitPointsLabel.htmlFor = 'showHitPoints';
@@ -525,22 +515,46 @@ function createDebugHUD() {
     hitPointsContainer.appendChild(hitPointsLabel);
     debugHUD.appendChild(hitPointsContainer);
 
+    // Create debug info log toggle
+    const debugInfoLogContainer = document.createElement('div');
+    debugInfoLogContainer.style.margin = '10px 0';
+
+    const debugInfoLogCheckbox = document.createElement('input');
+    debugInfoLogCheckbox.type = 'checkbox';
+    debugInfoLogCheckbox.id = 'showDebugInfoLog';
+    debugInfoLogCheckbox.checked = GameConfig.debug.showDebugInfoLog;
+
+    const debugInfoLogLabel = document.createElement('label');
+    debugInfoLogLabel.htmlFor = 'showDebugInfoLog';
+    debugInfoLogLabel.textContent = 'Show Debug Console Logs';
+    debugInfoLogLabel.style.marginLeft = '5px';
+    debugInfoLogLabel.style.cursor = 'pointer';
+
+    debugInfoLogContainer.appendChild(debugInfoLogCheckbox);
+    debugInfoLogContainer.appendChild(debugInfoLogLabel);
+    debugHUD.appendChild(debugInfoLogContainer);
+
     // Add event listeners
     hitboxCheckbox.addEventListener('change', function() {
-        showHitboxes = this.checked;
+        GameConfig.debug.showHitboxes = this.checked;
         updateHitboxVisibility();
     });
 
     waypointCheckbox.addEventListener('change', function() {
-        showWaypoints = this.checked;
+        GameConfig.debug.showWaypoints = this.checked;
         if (window.togglePathVisualization) {
-            window.togglePathVisualization(showWaypoints);
+            window.togglePathVisualization(GameConfig.debug.showWaypoints);
         }
     });
 
     hitPointsCheckbox.addEventListener('change', function() {
-        showHitPoints = this.checked;
+        GameConfig.debug.showHitPoints = this.checked;
         // Add any hit points visualization logic here
+    });
+
+    debugInfoLogCheckbox.addEventListener('change', function() {
+        GameConfig.debug.showDebugInfoLog = this.checked;
+        debugLog(`Debug console logs ${this.checked ? 'enabled' : 'disabled'}`);
     });
 
     // Add player position info
@@ -564,13 +578,13 @@ function createDebugHUD() {
 
 // Pause the game
 function pauseGame(fromEscKey = false) {
-    console.log("Pausing game" + (fromEscKey ? " from ESC key" : ""));
+    debugLog("Pausing game" + (fromEscKey ? " from ESC key" : ""));
     gamePaused = true;
     window.gamePaused = true;
     
     // Show debug HUD when pausing
     debugHUDVisible = true;
-    showHitboxes = true;
+    GameConfig.debug.showHitboxes = true;
     
     // Create and show debug HUD
     const debugHUD = createDebugHUD();
@@ -628,13 +642,13 @@ function updateDebugInfo() {
 
 // Resume the game
 function resumeGame() {
-    console.log("Resuming game");
+    debugLog("Resuming game");
     gamePaused = false;
     window.gamePaused = false;
     
     // Hide debug HUD when resuming
     debugHUDVisible = false;
-    showHitboxes = false;
+    GameConfig.debug.showHitboxes = false;
     
     // Hide debug HUD
     const debugHUD = document.getElementById('debugHUD');
@@ -669,17 +683,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Create Scene
 function createScene(engine, canvas) {
-    console.log("Creating scene...");
+    debugLog("Creating scene...");
     
     // Create a basic BabylonJS Scene object and assign to global variable
     scene = new BABYLON.Scene(engine);
-    console.log("Scene created");
+    debugLog("Scene created");
     
     // Make scene globally accessible
     window.scene = scene;
     
     // Create and position a free camera
-    camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, playerHeight, 0), scene);
+    camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, GameConfig.player.height, 0), scene);
     camera.rotation.x = 0; // Ensure camera is level (not looking down)
     camera.attachControl(canvas, true);
     
@@ -691,7 +705,7 @@ function createScene(engine, canvas) {
     camera.minZ = 0.1; // Near clip plane
     camera.maxZ = 100; // Far clip plane
     
-    console.log("Camera setup complete");
+    debugLog("Camera setup complete");
     
     // Create a directional light
     dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.5, -1, -0.5), scene);
@@ -699,7 +713,7 @@ function createScene(engine, canvas) {
     dirLight.diffuse = new BABYLON.Color3(1, 0.9, 0.8); // Warm sunlight color
     dirLight.specular = new BABYLON.Color3(1, 1, 1);
     
-    console.log("Directional light setup complete");
+    debugLog("Directional light setup complete");
     
     // Create a hemispheric light
     hemisphericLight = new BABYLON.HemisphericLight("hemisphericLight", new BABYLON.Vector3(0, 1, 0), scene);
@@ -707,7 +721,7 @@ function createScene(engine, canvas) {
     hemisphericLight.diffuse = new BABYLON.Color3(0.8, 0.8, 1); // Slightly blue sky color
     hemisphericLight.groundColor = new BABYLON.Color3(0.3, 0.3, 0.2); // Brown-ish ground color
     
-    console.log("Hemispheric light setup complete");
+    debugLog("Hemispheric light setup complete");
     
     // Create ground
     ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 100, height: 100 }, scene);
@@ -716,7 +730,7 @@ function createScene(engine, canvas) {
     groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
     ground.material = groundMat;
     
-    console.log("Ground setup complete");
+    debugLog("Ground setup complete");
     
     // Create walls and obstacles
     createWalls();
@@ -850,14 +864,14 @@ function createPlayerMesh() {
     // Create the main player mesh (invisible)
     playerMesh = BABYLON.MeshBuilder.CreateBox("playerMesh", {
         width: 1,
-        height: playerHeight,
+        height: GameConfig.player.height,
         depth: 1
     }, scene);
     playerMesh.isVisible = false; // Invisible in first-person
     
     // Ensure player starts on the ground
-    playerMesh.position = new BABYLON.Vector3(0, playerHeight / 2, 0);
-    console.log("Player mesh created at position:", playerMesh.position);
+    playerMesh.position = new BABYLON.Vector3(0, GameConfig.player.height / 2, 0);
+    debugLog("Player mesh created at position: " + JSON.stringify(playerMesh.position));
     
     // Reset vertical velocity and grounded state
     verticalVelocity = 0;
@@ -867,11 +881,11 @@ function createPlayerMesh() {
     if (camera) {
         camera.position = new BABYLON.Vector3(
             playerMesh.position.x,
-            playerMesh.position.y + (playerHeight / 2) - 0.2,
+            playerMesh.position.y + (GameConfig.player.height / 2) - 0.2,
             playerMesh.position.z
         );
         camera.rotation.x = 0;
-        console.log("Camera positioned at:", camera.position, "with rotation:", camera.rotation);
+        debugLog("Camera positioned at: " + JSON.stringify(camera.position) + " with rotation: " + JSON.stringify(camera.rotation));
     } else {
         console.error("Camera is not defined in createPlayerMesh");
     }
@@ -992,7 +1006,7 @@ function setupInputHandlers(canvas, scene) {
             
             // Only auto-pause if the game is running and not already paused
             if (gameStarted && !gamePaused && !gameOver) {
-                console.log("Pointer lock exited, auto-pausing game");
+                debugLog("Pointer lock exited, auto-pausing game");
                 pointerLockPaused = true;
                 pauseGame();
             }
@@ -1046,7 +1060,7 @@ function updatePlayer() {
     if (keys.space && isGrounded) {
         verticalVelocity = jumpForce;
         isGrounded = false;
-        console.log("Jump initiated, vertical velocity:", verticalVelocity);
+        debugLog("Jump initiated, vertical velocity: " + verticalVelocity);
     }
     
     // Apply gravity
@@ -1054,7 +1068,7 @@ function updatePlayer() {
     
     // Debug vertical movement occasionally
     if (Math.random() < 0.01) { // Log only occasionally to avoid console spam
-        console.log("Player Y position:", playerMesh.position.y, "Vertical velocity:", verticalVelocity, "Grounded:", isGrounded);
+        debugLog("Player Y position: " + playerMesh.position.y + ", Vertical velocity: " + verticalVelocity + ", Grounded: " + isGrounded);
     }
     
     // Update position
@@ -1063,12 +1077,12 @@ function updatePlayer() {
     playerMesh.position.y += verticalVelocity;
     
     // Check for ground collision
-    if (playerMesh.position.y <= playerHeight / 2) {
-        playerMesh.position.y = playerHeight / 2;
+    if (playerMesh.position.y <= GameConfig.player.height / 2) {
+        playerMesh.position.y = GameConfig.player.height / 2;
         verticalVelocity = 0;
         isGrounded = true;
         // Log when player hits ground (this is noisy so for debugging only)
-        // console.log("Player hit ground. Position reset to:", playerMesh.position.y);
+        // debugLog("Player hit ground. Position reset to:", playerMesh.position.y);
     }
     
     // Enforce map boundaries
@@ -1087,7 +1101,7 @@ function updatePlayer() {
     // Update camera position to follow player
     camera.position.x = playerMesh.position.x;
     camera.position.z = playerMesh.position.z;
-    camera.position.y = playerMesh.position.y + playerHeight / 2;
+    camera.position.y = playerMesh.position.y + GameConfig.player.height / 2;
     
     // Check for pickups
     checkPickups();
@@ -1141,11 +1155,11 @@ function shootProjectile() {
     // Check ammo
     if (playerAmmo <= 0) {
         // Play empty gun sound or show message
-        console.log("Out of ammo!");
+        debugLog("Out of ammo!");
         return;
     }
     
-    console.log("Shooting projectile");
+    debugLog("Shooting projectile");
     lastShootTime = currentTime;
     playerAmmo--;
     
@@ -1333,7 +1347,7 @@ function updateProjectiles() {
         
         // Debug log occasionally
         if (Math.random() < 0.01) {
-            console.log(`[PROJECTILE] ${projectile.id} position: (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)}), direction: (${projectile.direction.x.toFixed(2)}, ${projectile.direction.y.toFixed(2)}, ${projectile.direction.z.toFixed(2)})`);
+            debugLog(`[PROJECTILE] ${projectile.id} position: (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)}), direction: (${projectile.direction.x.toFixed(2)}, ${projectile.direction.y.toFixed(2)}, ${projectile.direction.z.toFixed(2)})`);
         }
         
         // Check for collisions with walls
@@ -1347,12 +1361,12 @@ function updateProjectiles() {
         // Check for collisions with player (only for enemy projectiles)
         if (projectile.isEnemyProjectile && playerMesh) {
             const dx = projectile.mesh.position.x - playerMesh.position.x;
-            const dy = projectile.mesh.position.y - (playerMesh.position.y + playerHeight/2);
+            const dy = projectile.mesh.position.y - (playerMesh.position.y + GameConfig.player.height/2);
             const dz = projectile.mesh.position.z - playerMesh.position.z;
             const distanceToPlayer = Math.sqrt(dx * dx + dy * dy + dz * dz);
             
             if (distanceToPlayer < 1.0) {
-                console.log("Player hit!");
+                debugLog("Player hit!");
                 playerHealth -= 20; // Fixed damage amount
                 createHitEffect(playerMesh.position.clone());
                 cleanupProjectile(projectile);
@@ -1369,8 +1383,8 @@ function updateProjectiles() {
         if (!projectile.isEnemyProjectile) {
             // Log occasionally for debugging
             if (Math.random() < 0.01) {
-                console.log(`[PROJECTILE] Player projectile at position: (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)})`);
-                console.log(`[PROJECTILE] Checking collisions with ${Object.keys(window.loadedEnemies).length} enemies`);
+                debugLog(`[PROJECTILE] Player projectile at position: (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)})`);
+                debugLog(`[PROJECTILE] Checking collisions with ${Object.keys(window.loadedEnemies).length} enemies`);
             }
             
             // Create a ray for the projectile's movement path
@@ -1393,7 +1407,7 @@ function updateProjectiles() {
                 
                 // Method 1: Direct mesh intersection check
                 if (enemy.headHitbox && projectile.mesh.intersectsMesh(enemy.headHitbox, false)) {
-                    console.log(`Enemy ${enemyId} headshot with intersectsMesh!`);
+                    debugLog(`Enemy ${enemyId} headshot with intersectsMesh!`);
                     const damage = 50; // More damage for headshots
                     
                     // Call hit reaction
@@ -1413,7 +1427,7 @@ function updateProjectiles() {
                 
                 // Method 2: Direct mesh intersection check for body
                 if (!hitEnemy && enemy.bodyHitbox && projectile.mesh.intersectsMesh(enemy.bodyHitbox, false)) {
-                    console.log(`Enemy ${enemyId} body shot with intersectsMesh!`);
+                    debugLog(`Enemy ${enemyId} body shot with intersectsMesh!`);
                     const damage = 25; // Normal damage for body shots
                     
                     // Call hit reaction
@@ -1421,7 +1435,7 @@ function updateProjectiles() {
                         const hitDirection = projectile.direction.clone();
                         window.handleEnemyHit(enemyId, damage, hitDirection);
                     } else {
-                        console.error("window.handleEnemyHit function not found!");
+                        debugLog("window.handleEnemyHit function not found!", true); // Force show this error
                     }
                     
                     createHitEffect(projectile.mesh.position.clone());
@@ -1454,7 +1468,7 @@ function updateProjectiles() {
                             );
                             
                             if (distance <= headBoundingInfo.boundingSphere.radiusWorld + 0.2) { // Add a small buffer
-                                console.log(`Enemy ${enemyId} headshot with bounding sphere distance! Distance: ${distance.toFixed(2)}`);
+                                debugLog(`Enemy ${enemyId} headshot with bounding sphere distance! Distance: ${distance.toFixed(2)}`);
                                 const damage = 50; // More damage for headshots
                                 
                                 if (window.handleEnemyHit) {
@@ -1486,7 +1500,7 @@ function updateProjectiles() {
                             );
                             
                             if (distance <= bodyBoundingInfo.boundingSphere.radiusWorld + 0.2) { // Add a small buffer
-                                console.log(`Enemy ${enemyId} body shot with bounding sphere distance! Distance: ${distance.toFixed(2)}`);
+                                debugLog(`Enemy ${enemyId} body shot with bounding sphere distance! Distance: ${distance.toFixed(2)}`);
                                 const damage = 25; // Normal damage for body shots
                                 
                                 if (window.handleEnemyHit) {
@@ -1512,8 +1526,8 @@ function updateProjectiles() {
                     const shouldDebugRay = Math.random() < 0.05; // 5% chance to debug
                     
                     if (shouldDebugRay) {
-                        console.log(`[RAY] Casting ray from (${previousPosition.x.toFixed(2)}, ${previousPosition.y.toFixed(2)}, ${previousPosition.z.toFixed(2)}) to (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)})`);
-                        console.log(`[RAY] Ray direction: (${ray.direction.x.toFixed(2)}, ${ray.direction.y.toFixed(2)}, ${ray.direction.z.toFixed(2)}), length: ${ray.length.toFixed(2)}`);
+                        debugLog(`[RAY] Casting ray from (${previousPosition.x.toFixed(2)}, ${previousPosition.y.toFixed(2)}, ${previousPosition.z.toFixed(2)}) to (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)})`);
+                        debugLog(`[RAY] Ray direction: (${ray.direction.x.toFixed(2)}, ${ray.direction.y.toFixed(2)}, ${ray.direction.z.toFixed(2)}), length: ${ray.length.toFixed(2)}`);
                         
                         // Visualize ray for debugging
                         const rayHelper = new BABYLON.RayHelper(ray);
@@ -1524,14 +1538,14 @@ function updateProjectiles() {
                     const headHit = scene.pickWithRay(ray, mesh => mesh === enemy.headHitbox);
                     
                     if (shouldDebugRay) {
-                        console.log(`[RAY] Head hit result: ${headHit.hit ? 'HIT' : 'MISS'}`);
+                        debugLog(`[RAY] Head hit result: ${headHit.hit ? 'HIT' : 'MISS'}`);
                         if (headHit.hit) {
-                            console.log(`[RAY] Hit point: (${headHit.pickedPoint.x.toFixed(2)}, ${headHit.pickedPoint.y.toFixed(2)}, ${headHit.pickedPoint.z.toFixed(2)}), distance: ${headHit.distance.toFixed(2)}`);
+                            debugLog(`[RAY] Hit point: (${headHit.pickedPoint.x.toFixed(2)}, ${headHit.pickedPoint.y.toFixed(2)}, ${headHit.pickedPoint.z.toFixed(2)}), distance: ${headHit.distance.toFixed(2)}`);
                         }
                     }
                     
                     if (headHit && headHit.hit) {
-                        console.log(`Enemy ${enemyId} headshot with ray!`);
+                        debugLog(`Enemy ${enemyId} headshot with ray!`);
                         const damage = 50; // More damage for headshots
                         
                         if (window.handleEnemyHit) {
@@ -1550,7 +1564,7 @@ function updateProjectiles() {
                 if (!hitEnemy && enemy.bodyHitbox) {
                     const bodyHit = scene.pickWithRay(ray, mesh => mesh === enemy.bodyHitbox);
                     if (bodyHit && bodyHit.hit) {
-                        console.log(`Enemy ${enemyId} body shot with ray!`);
+                        debugLog(`Enemy ${enemyId} body shot with ray!`);
                         const damage = 25; // Normal damage for body shots
                         
                         if (window.handleEnemyHit) {
@@ -1582,7 +1596,7 @@ function updateProjectiles() {
                         
                         // Use a generous collision radius (0.8 is the diameter of the head hitbox)
                         if (distanceToHead < 0.8) {
-                            console.log(`Enemy ${enemyId} headshot with distance check! Distance: ${distanceToHead.toFixed(2)}`);
+                            debugLog(`Enemy ${enemyId} headshot with distance check! Distance: ${distanceToHead.toFixed(2)}`);
                             const damage = 50; // More damage for headshots
                             
                             if (window.handleEnemyHit) {
@@ -1605,10 +1619,10 @@ function updateProjectiles() {
                         const dz = projectilePos.z - bodyPos.z;
                         const distanceToBody = Math.sqrt(dx * dx + dy * dy + dz * dz);
                         
-                        // Use a generous collision radius (1.0 is the diameter of the body hitbox)
-                        if (distanceToBody < 1.0) {
-                            console.log(`Enemy ${enemyId} body shot with distance check! Distance: ${distanceToBody.toFixed(2)}`);
-                            const damage = 25; // Normal damage for body shots
+                        // Use a generous collision radius (1.5 is the diameter of the body hitbox)
+                        if (distanceToBody < 1.5) {
+                            debugLog(`Enemy ${enemyId} body shot with distance check! Distance: ${distanceToBody.toFixed(2)}`);
+                            const damage = 25; // Standard damage for body shots
                             
                             if (window.handleEnemyHit) {
                                 const hitDirection = projectile.direction.clone();
@@ -1778,7 +1792,7 @@ function updateEnemies() {
             
             // Debug log enemy positions
             if (Math.random() < 0.01) { // Log occasionally
-                console.log(`[POSITION] Enemy ${enemyId} - ` +
+                debugLog(`[POSITION] Enemy ${enemyId} - ` +
                            `Controller pos: (${enemyPosition.x.toFixed(2)}, ${enemyPosition.z.toFixed(2)}), ` +
                            `Mesh pos: (${enemy.mesh.position.x.toFixed(2)}, ${enemy.mesh.position.y.toFixed(2)}, ${enemy.mesh.position.z.toFixed(2)}), ` +
                            `Player pos: (${playerMesh.position.x.toFixed(2)}, ${playerMesh.position.y.toFixed(2)}, ${playerMesh.position.z.toFixed(2)})`);
@@ -1792,7 +1806,7 @@ function updateEnemies() {
             // If enemy is very close to player, do melee damage
             // Increased threshold from 2.5 to 3.5 to account for potential position discrepancies
             if (distanceToPlayer < 3.5 && currentTime - lastHitTime > hitCooldown) {
-                console.log(`[MELEE] Enemy ${enemyId} melee attack at distance ${distanceToPlayer.toFixed(2)}!`);
+                debugLog(`[MELEE] Enemy ${enemyId} melee attack at distance ${distanceToPlayer.toFixed(2)}!`);
                 playerHealth -= 10; // Melee damage
                 lastHitTime = currentTime;
                 
@@ -1841,7 +1855,8 @@ function checkAmmoPickups(enemy) {
             createPickupEffect(pickup.mesh.position);
             
             // Log pickup destruction
-            console.log(`[PICKUP] Enemy ${enemy.id} destroyed ammo pickup at distance ${distance.toFixed(2)}`);
+            debugLog(`[PICKUP] Enemy ${enemy.id} destroyed ammo pickup at distance ${distance.toFixed(2)}`);
+            ammoPickups.splice(i, 1);
         }
     }
 }
@@ -1851,7 +1866,7 @@ function handleEnemyDeath(enemyId) {
     const enemy = enemies[enemyId];
     if (!enemy) return;
     
-    console.log(`Enemy ${enemyId} death handling in player_main.js`);
+    debugLog(`Enemy ${enemyId} death handling in player_main.js`);
     
     // Show a final damage indicator with "KILLED" text if the function exists
     if (window.createKilledIndicator) {
@@ -1861,9 +1876,10 @@ function handleEnemyDeath(enemyId) {
     // Remove from our tracking
     delete enemies[enemyId];
     
-    // Spawn a new enemy after a random delay between 5 and 10 seconds
-    const respawnDelay = 5000 + Math.random() * 5000; // Random time between 5000ms and 10000ms
-    console.log(`Enemy will respawn in ${(respawnDelay/1000).toFixed(1)} seconds`);
+    // Spawn a new enemy after a random delay
+    const respawnDelay = GameConfig.enemies.respawnMinTime + 
+                         Math.random() * (GameConfig.enemies.respawnMaxTime - GameConfig.enemies.respawnMinTime);
+    debugLog(`Enemy will respawn in ${(respawnDelay/1000).toFixed(1)} seconds`);
     
     setTimeout(() => {
         spawnEnemy();
@@ -1993,7 +2009,7 @@ function createDeathEffect(position) {
 
 // Enemy attacks player (melee)
 function attackPlayer(enemy, damage) {
-    console.log(`Enemy ${enemy.id} attacks player for ${damage} damage`);
+    debugLog(`Enemy ${enemy.id} attacks player for ${damage} damage`);
     
     // Apply damage to player
     playerHealth -= damage;
@@ -2049,16 +2065,10 @@ function createAttackEffect(position) {
 
 // Handle player death
 function handlePlayerDeath() {
-    console.log("Player has died!");
-    
-    // Set game state to dead
+    // Set game over state
     gameOver = true;
     
-    // Disable controls
-    camera.detachControl(canvas);
-    
-    // Create death effect
-    createDeathEffect(playerMesh.position);
+    debugLog("Player has died!");
     
     // Show game over screen
     showGameOverScreen();
@@ -2120,7 +2130,7 @@ function showGameOverScreen() {
 
 // Create ammo pickups in the game
 function createAmmoPickups() {
-    console.log("Creating ammo pickups...");
+    debugLog("Creating ammo pickups...");
     
     // Check if scene is defined
     if (!scene) {
@@ -2226,8 +2236,8 @@ function checkPickups() {
 function collectPickup(pickup) {
     if (pickup.pickupType === "ammo") {
         // Add ammo to player
-        playerAmmo += pickup.ammoAmount;
-        console.log(`Picked up ${pickup.ammoAmount} ammo. Total: ${playerAmmo}`);
+        playerAmmo = Math.min(playerAmmo + pickup.ammoAmount, maxAmmo);
+        debugLog(`Picked up ${pickup.ammoAmount} ammo. Total: ${playerAmmo}`);
         
         // Update HUD
         updateHUD();
@@ -2283,17 +2293,17 @@ function createPickupEffect(position) {
 
 // Function to spawn a single enemy
 function spawnEnemy() {
-    console.log("Spawning enemy...");
+    debugLog("Spawning enemy...");
     
     // Check if scene is defined
     if (!scene) {
-        console.error("Scene is not defined in spawnEnemy");
+        debugLog("Scene is not defined in spawnEnemy", true); // Force show this error
         return;
     }
     
     // Get random spawn point
     const spawnPoint = getRandomSpawnPoint();
-    console.log("Spawning enemy at:", spawnPoint);
+    debugLog("Spawning enemy at: " + JSON.stringify(spawnPoint));
     
     // Generate a unique ID for this enemy
     const enemyId = 'enemy_' + Date.now();
@@ -2312,7 +2322,7 @@ function spawnEnemy() {
             hitCooldown: 1000
         };
         
-        console.log("Enemy spawned successfully with ID:", enemyId);
+        debugLog("Enemy spawned successfully with ID: " + enemyId);
         
         // Set the enemy to patrol state using the controller
         setEnemyState(enemyId, "PATROL");
@@ -2371,10 +2381,10 @@ function updateHitboxVisibility() {
     // Update player hitboxes
     if (playerMesh) {
         if (playerMesh.headHitbox) {
-            playerMesh.headHitbox.isVisible = showHitboxes;
+            playerMesh.headHitbox.isVisible = GameConfig.debug.showHitboxes;
         }
         if (playerMesh.bodyHitbox) {
-            playerMesh.bodyHitbox.isVisible = showHitboxes;
+            playerMesh.bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
         }
     }
     
@@ -2385,15 +2395,15 @@ function updateHitboxVisibility() {
             if (enemy) {
                 // Update collision box visibility
                 if (enemy.collisionBox) {
-                    enemy.collisionBox.isVisible = showHitboxes;
+                    enemy.collisionBox.isVisible = GameConfig.debug.showHitboxes;
                 }
                 
                 // Update head and body hitboxes if they exist
                 if (enemy.headHitbox) {
-                    enemy.headHitbox.isVisible = showHitboxes;
+                    enemy.headHitbox.isVisible = GameConfig.debug.showHitboxes;
                 }
                 if (enemy.bodyHitbox) {
-                    enemy.bodyHitbox.isVisible = showHitboxes;
+                    enemy.bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
                 }
             }
         }
@@ -2449,7 +2459,7 @@ function checkHitboxCollision(projectilePosition, hitbox) {
     
     // Log collision check occasionally (to avoid console spam)
     if (Math.random() < 0.01 || isHit) {
-        console.log(`[HITBOX] Checking collision with ${hitbox.name}: ` +
+        debugLog(`[HITBOX] Checking collision with ${hitbox.name}: ` +
                    `Distance: (${dx.toFixed(2)}, ${dy.toFixed(2)}, ${dz.toFixed(2)}), ` +
                    `Bounds: (${hitboxWidth.toFixed(2)}, ${hitboxHeight.toFixed(2)}, ${hitboxDepth.toFixed(2)}), ` +
                    `Result: ${isHit ? 'HIT' : 'MISS'}`);

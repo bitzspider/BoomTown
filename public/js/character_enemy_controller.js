@@ -21,7 +21,7 @@ var playerMesh = null;
 // Function to set player mesh reference
 function setPlayerMeshReference(mesh) {
     playerMesh = mesh;
-    console.log("Player mesh reference set in enemy controller");
+    debugLog("Player mesh reference set in enemy controller");
 }
 
 // Make the function globally accessible
@@ -40,7 +40,7 @@ let availableAnimations = {};
 let currentAnim = null;
 
 // Function to check if a new path overlaps with existing paths
-function doesPathOverlap(newPath, minDistance = 5) {
+function doesPathOverlap(newPath, minDistance = GameConfig.patrolPaths.minDistance) {
     if (!newPath || newPath.length === 0) return false;
     
     for (const existingPath of existingPaths) {
@@ -59,16 +59,18 @@ function doesPathOverlap(newPath, minDistance = 5) {
 }
 
 // Function to get a unique patrol path
-function getUniquePatrolPath(position, maxAttempts = 10) {
+function getUniquePatrolPath(position, maxAttempts = GameConfig.patrolPaths.maxAttempts) {
     let attempts = 0;
     let path;
     
     do {
-        // Generate a random number of waypoints between 6 and 13
-        const numPoints = 6 + Math.floor(Math.random() * 8);
+        // Generate a random number of waypoints between min and max from config
+        const numPoints = GameConfig.patrolPaths.minWaypoints + 
+                          Math.floor(Math.random() * (GameConfig.patrolPaths.maxWaypoints - GameConfig.patrolPaths.minWaypoints + 1));
         
-        // Generate random radius between 10 and 25 units
-        const radius = 10 + Math.random() * 15;
+        // Generate random radius between min and max from config
+        const radius = GameConfig.patrolPaths.minRadius + 
+                       Math.random() * (GameConfig.patrolPaths.maxRadius - GameConfig.patrolPaths.minRadius);
         
         // Start from the given position
         path = [{ x: position.x, y: 0, z: position.z }];
@@ -85,8 +87,9 @@ function getUniquePatrolPath(position, maxAttempts = 10) {
             let z = position.z + Math.sin(randomAngle) * pointRadius;
             
             // Ensure point is within map boundaries
-            x = Math.max(window.MAP_BOUNDARIES.minX + 5, Math.min(window.MAP_BOUNDARIES.maxX - 5, x));
-            z = Math.max(window.MAP_BOUNDARIES.minZ + 5, Math.min(window.MAP_BOUNDARIES.maxZ - 5, z));
+            const margin = GameConfig.map.boundaryMargin;
+            x = Math.max(GameConfig.map.boundaries.minX + margin, Math.min(GameConfig.map.boundaries.maxX - margin, x));
+            z = Math.max(GameConfig.map.boundaries.minZ + margin, Math.min(GameConfig.map.boundaries.maxZ - margin, z));
             
             path.push({ x, y: 0, z });
         }
@@ -95,13 +98,13 @@ function getUniquePatrolPath(position, maxAttempts = 10) {
         path.push({ ...path[0] });
         
         attempts++;
-    } while (doesPathOverlap(path) && attempts < maxAttempts);
+    } while (doesPathOverlap(path, GameConfig.patrolPaths.minDistance) && attempts < maxAttempts);
     
     if (path) {
         existingPaths.push(path);
     }
     
-    console.log(`Generated path with ${path.length} waypoints`);
+    debugLog(`Generated path with ${path.length} waypoints`);
     return path;
 }
 
@@ -123,22 +126,22 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         position = generateRandomSpawnPosition();
     }
     
-    console.log("Loading enemy model at position:", position);
+    debugLog("Loading enemy model at position:", position);
     
     const modelPath = "/models/";
     const model = "Character_Enemy.glb";
     
     try {
         const result = await BABYLON.SceneLoader.ImportMeshAsync("", modelPath, model, scene);
-        console.log("Enemy model loaded successfully:", result);
+        debugLog("Enemy model loaded successfully:", result);
         
         const enemyId = generateUniqueId();
         const enemyRoot = result.meshes[0];
         
         // Store animations
-        console.log("=== AVAILABLE ENEMY ANIMATIONS ===");
+        debugLog("=== AVAILABLE ENEMY ANIMATIONS ===");
         scene.animationGroups.forEach(animGroup => {
-            console.log(`Animation found: "${animGroup.name}"`);
+            debugLog(`Animation found: "${animGroup.name}"`);
             availableAnimations[animGroup.name] = animGroup;
         });
         
@@ -154,16 +157,16 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
 
         // Create head hitbox with enemy ID
         const headHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_head_${enemyId}`, {
-            width: 0.8,
-            height: 0.8,
-            depth: 0.8
+            width: GameConfig.enemies.headHitbox.width,
+            height: GameConfig.enemies.headHitbox.height,
+            depth: GameConfig.enemies.headHitbox.depth
         }, scene);
         
         // Create body hitbox with enemy ID
         const bodyHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_body_${enemyId}`, {
-            width: 1.0,
-            height: 1.5,
-            depth: 1.0
+            width: GameConfig.enemies.bodyHitbox.width,
+            height: GameConfig.enemies.bodyHitbox.height,
+            depth: GameConfig.enemies.bodyHitbox.depth
         }, scene);
         
         // Create materials for hitboxes with enemy ID
@@ -196,12 +199,12 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         bodyHitbox.parent = enemyTransform;
         
         // Position hitboxes relative to enemy model
-        headHitbox.position.y = 1.7; // Position at head height
-        bodyHitbox.position.y = 0.9; // Position at body height
+        headHitbox.position.y = GameConfig.enemies.headHitbox.yPosition;
+        bodyHitbox.position.y = GameConfig.enemies.bodyHitbox.yPosition;
         
         // Set initial hitbox visibility based on global setting
-        headHitbox.isVisible = window.showHitboxes || false;
-        bodyHitbox.isVisible = window.showHitboxes || false;
+        headHitbox.isVisible = GameConfig.debug.showHitboxes;
+        bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
         
         // Store enemy in global map with hitbox references
         loadedEnemies[enemyId] = {
@@ -211,14 +214,14 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
             skeleton: result.skeletons[0],
             state: "IDLE",
             stateStartTime: Date.now(),
-            idleDuration: 3000,
+            idleDuration: GameConfig.enemies.idleDuration,
             currentPath: null,
             currentPathIndex: 0,
-            moveSpeed: 2.0,
-            rotationSpeed: 0.15, // Increased for smoother rotation
+            moveSpeed: GameConfig.enemies.moveSpeed,
+            rotationSpeed: GameConfig.enemies.rotationSpeed,
             headHitbox: headHitbox,
             bodyHitbox: bodyHitbox,
-            health: 100
+            health: GameConfig.enemies.health
         };
         
         // Generate unique patrol path starting from spawn position
@@ -228,7 +231,7 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         // Create Yuka Vehicle for movement
         const vehicle = new YUKA.Vehicle();
         vehicle.position.set(position.x, 0, position.z);
-        vehicle.maxSpeed = 2.0;
+        vehicle.maxSpeed = GameConfig.enemies.moveSpeed;
         vehicle.maxForce = 50;
         vehicle.updateNeeded = true;
         loadedEnemies[enemyId].vehicle = vehicle;
@@ -237,7 +240,7 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         entityManager.add(vehicle);
         
         // Initialize rotation speed
-        loadedEnemies[enemyId].rotationSpeed = 0.15; // Increased for smoother rotation
+        loadedEnemies[enemyId].rotationSpeed = GameConfig.enemies.rotationSpeed;
         
         // Play initial idle animation
         playEnemyAnimation(enemyId, "Idle");
@@ -255,8 +258,8 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
             syncEnemyWithYuka(enemyId);
             
             // Update hitbox visibility whenever it changes
-            headHitbox.isVisible = window.showHitboxes || false;
-            bodyHitbox.isVisible = window.showHitboxes || false;
+            headHitbox.isVisible = GameConfig.debug.showHitboxes;
+            bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
         });
         
         // Create visualization for initial path
@@ -326,31 +329,44 @@ function updateEnemyState(enemyId) {
     const timeInState = currentTime - enemy.stateStartTime;
     
     // Check if player is within chase range
-    const isPlayerInRange = checkPlayerInRange(enemyId, 12); // 12 blocks detection range
+    const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detectionRange);
+    
+    // Check if enemy is in aggro mode (was hit recently)
+    const timeSinceLastHit = enemy.lastHitTime ? currentTime - enemy.lastHitTime : Infinity;
+    const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || GameConfig.enemies.aggroTime);
+    
+    // If in aggro mode, enemy will chase player even if out of normal detection range
+    const shouldChasePlayer = isPlayerInRange || isInAggroMode;
+    
+    // Log aggro status occasionally
+    if (isInAggroMode && Math.random() < 0.01) { // 1% chance per frame to log
+        const remainingAggroTime = ((enemy.aggroTime || GameConfig.enemies.aggroTime) - timeSinceLastHit) / 1000;
+        debugLog(`Enemy ${enemyId} is in aggro mode. Remaining time: ${remainingAggroTime.toFixed(1)} seconds`);
+    }
     
     switch (enemy.state) {
         case "IDLE":
-            if (isPlayerInRange) {
+            if (shouldChasePlayer) {
                 setEnemyState(enemyId, "CHASE");
             } else if (timeInState >= enemy.idleDuration) {
                 setEnemyState(enemyId, "PATROL");
             }
             break;
         case "PATROL":
-            if (isPlayerInRange) {
+            if (shouldChasePlayer) {
                 setEnemyState(enemyId, "CHASE");
             } else {
                 updateEnemyPatrol(enemyId);
             }
             break;
         case "CHASE":
-            if (!isPlayerInRange) {
+            if (!shouldChasePlayer) {
                 setEnemyState(enemyId, "PATROL");
             } else {
                 updateEnemyChase(enemyId);
                 
                 // Occasionally shoot at player when in chase mode
-                if (Math.random() < 0.01) { // 1% chance per frame to shoot
+                if (Math.random() < GameConfig.enemies.shootProbability) {
                     enemyShootAtPlayer(enemyId);
                 }
             }
@@ -400,8 +416,62 @@ function updateEnemyPatrol(enemyId) {
         enemy.currentPath = newPath;
         enemy.currentPathIndex = 0;
         createPathVisualization(enemyId, newPath);
-        console.log(`[PATROL] Generated new path for enemy ${enemyId} with ${newPath.length} waypoints`);
+        debugLog(`[PATROL] Generated new path for enemy ${enemyId} with ${newPath.length} waypoints`);
         return;
+    }
+    
+    // Check if enemy is in aggro mode (was hit recently)
+    const currentTime = Date.now();
+    const timeSinceLastHit = enemy.lastHitTime ? currentTime - enemy.lastHitTime : Infinity;
+    const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || GameConfig.enemies.aggroTime);
+    
+    // If in aggro mode and searching, try to move towards the player's last known position
+    if (isInAggroMode && enemy.isSearching) {
+        // Log search status occasionally
+        if (Math.random() < 0.01) { // 1% chance per frame to log
+            const remainingAggroTime = ((enemy.aggroTime || GameConfig.enemies.aggroTime) - timeSinceLastHit) / 1000;
+            debugLog(`Enemy ${enemyId} is searching for player. Remaining aggro time: ${remainingAggroTime.toFixed(1)} seconds`);
+        }
+        
+        // Check if we should generate a path to the player's position
+        if (!enemy.searchingForPlayer) {
+            enemy.searchingForPlayer = true;
+            
+            // Get player position
+            const playerPos = playerMesh ? { 
+                x: playerMesh.position.x, 
+                z: playerMesh.position.z 
+            } : null;
+            
+            if (playerPos) {
+                debugLog(`Enemy ${enemyId} is generating a search path towards player's position`);
+                
+                // Remove old path from existingPaths
+                const oldPathIndex = existingPaths.indexOf(enemy.currentPath);
+                if (oldPathIndex !== -1) {
+                    existingPaths.splice(oldPathIndex, 1);
+                }
+                
+                // Generate a path that leads towards the player's position
+                const searchPath = generateSearchPath(
+                    { x: enemy.transform.position.x, z: enemy.transform.position.z },
+                    playerPos
+                );
+                
+                enemy.currentPath = searchPath;
+                enemy.currentPathIndex = 0;
+                createPathVisualization(enemyId, searchPath);
+                
+                // After a while, stop searching and go back to normal patrol
+                setTimeout(() => {
+                    if (enemy && enemy.isSearching) {
+                        debugLog(`Enemy ${enemyId} is giving up the search`);
+                        enemy.isSearching = false;
+                        enemy.searchingForPlayer = false;
+                    }
+                }, GameConfig.enemies.searchDuration);
+            }
+        }
     }
     
     // Update current waypoint visualization
@@ -417,19 +487,19 @@ function updateEnemyPatrol(enemyId) {
     
     // Log waypoint info occasionally
     if (Math.random() < 0.01) {
-        console.log(`[WAYPOINT] Enemy ${enemyId} at waypoint ${enemy.currentPathIndex}/${enemy.currentPath.length-1}, ` +
+        debugLog(`[WAYPOINT] Enemy ${enemyId} at waypoint ${enemy.currentPathIndex}/${enemy.currentPath.length-1}, ` +
                    `distance: ${distanceToWaypoint.toFixed(2)}, ` +
                    `direction: (${dx.toFixed(2)}, ${dz.toFixed(2)})`);
     }
     
     // If we've reached the waypoint
-    if (distanceToWaypoint < 0.5) {
-        console.log(`[WAYPOINT] Enemy ${enemyId} reached waypoint ${enemy.currentPathIndex}`);
+    if (distanceToWaypoint < GameConfig.patrolPaths.waypointReachedThreshold) {
+        debugLog(`[WAYPOINT] Enemy ${enemyId} reached waypoint ${enemy.currentPathIndex}`);
         enemy.currentPathIndex++;
         
         // If we've completed the path, generate a new one
         if (enemy.currentPathIndex >= enemy.currentPath.length) {
-            console.log(`[WAYPOINT] Enemy ${enemyId} completed path, generating new one`);
+            debugLog(`[WAYPOINT] Enemy ${enemyId} completed path, generating new one`);
             // Remove old path from existingPaths
             const oldPathIndex = existingPaths.indexOf(enemy.currentPath);
             if (oldPathIndex !== -1) {
@@ -489,7 +559,7 @@ function updateEnemyPatrol(enemyId) {
     
     // Check for collisions
     if (checkEnemyCollisions(enemy)) {
-        console.log(`[COLLISION] Enemy ${enemyId} collision detected, restoring position`);
+        debugLog(`[COLLISION] Enemy ${enemyId} collision detected, restoring position`);
         // Restore previous position
         vehicle.position.x = previousPosition.x;
         vehicle.position.z = previousPosition.z;
@@ -584,7 +654,7 @@ function updateEnemyChase(enemyId) {
     
     // If we've lost sight of the player, go back to patrol
     if (distanceToPlayer > enemy.detectionRadius * 1.5) {
-        console.log(`[CHASE] Enemy ${enemyId} lost sight of player, returning to patrol`);
+        debugLog(`[CHASE] Enemy ${enemyId} lost sight of player, returning to patrol`);
         setEnemyState(enemyId, "PATROL");
         
         // Generate new path from current position
@@ -617,7 +687,7 @@ function enemyShootAtPlayer(enemyId) {
     const enemy = loadedEnemies[enemyId];
     if (!enemy || !playerMesh) return;
     
-    console.log(`Enemy ${enemyId} shooting at player`);
+    debugLog(`Enemy ${enemyId} shooting at player`);
     
     // Calculate direction to player
     const dx = playerMesh.position.x - enemy.transform.position.x;
@@ -741,7 +811,7 @@ function checkEnemyCollisions(enemy) {
 
 // Play animation on enemy
 function playEnemyAnimation(enemyId, animationName) {
-    console.log(`Attempting to play animation for enemy ${enemyId}: "${animationName}"`);
+    debugLog(`Attempting to play animation for enemy ${enemyId}: "${animationName}"`);
     
     if (!availableAnimations) {
         console.warn("No animations available");
@@ -756,13 +826,13 @@ function playEnemyAnimation(enemyId, animationName) {
     
     // Special case for death animation - make sure we only play it once
     if (animationName.toLowerCase() === "death" && enemy._deathAnimationPlayed) {
-        console.log(`Death animation already played for enemy ${enemyId}, skipping`);
+        debugLog(`Death animation already played for enemy ${enemyId}, skipping`);
         return;
     }
     
     // Special case for hit reaction - directly try to find the HitReact animation
     if (enemy.state === "HIT_REACT") {
-        console.log(`Enemy ${enemyId} is in HIT_REACT state, looking for hit reaction animation`);
+        debugLog(`Enemy ${enemyId} is in HIT_REACT state, looking for hit reaction animation`);
         
         // Try to find a hit reaction animation
         const hitAnimationVariants = [
@@ -775,7 +845,7 @@ function playEnemyAnimation(enemyId, animationName) {
         // Check if any hit animation exists
         for (const variant of hitAnimationVariants) {
             if (availableAnimations[variant]) {
-                console.log(`Found hit reaction animation: "${variant}"`);
+                debugLog(`Found hit reaction animation: "${variant}"`);
                 animationName = variant;
                 break;
             }
@@ -784,7 +854,7 @@ function playEnemyAnimation(enemyId, animationName) {
             const matchingKey = Object.keys(availableAnimations).find(key => 
                 key.toLowerCase().includes(variant.toLowerCase()));
             if (matchingKey) {
-                console.log(`Found partial hit reaction animation match: "${matchingKey}"`);
+                debugLog(`Found partial hit reaction animation match: "${matchingKey}"`);
                 animationName = matchingKey;
                 break;
             }
@@ -792,9 +862,9 @@ function playEnemyAnimation(enemyId, animationName) {
         
         // Log all available animations to help debug if we couldn't find a hit animation
         if (animationName === "HitReact") {
-            console.log("Available animations for hit reaction:");
+            debugLog("Available animations for hit reaction:");
             Object.keys(availableAnimations).forEach(key => {
-                console.log(`- ${key}`);
+                debugLog(`- ${key}`);
             });
         }
     }
@@ -812,7 +882,7 @@ function playEnemyAnimation(enemyId, animationName) {
         // Try exact match
         if (availableAnimations[variant]) {
             animation = availableAnimations[variant];
-            console.log(`Found animation match: "${variant}"`);
+            debugLog(`Found animation match: "${variant}"`);
             break;
         }
         
@@ -821,7 +891,7 @@ function playEnemyAnimation(enemyId, animationName) {
             key.toLowerCase().includes(variant.toLowerCase()));
         if (matchingKey) {
             animation = availableAnimations[matchingKey];
-            console.log(`Found partial animation match: "${matchingKey}" for "${variant}"`);
+            debugLog(`Found partial animation match: "${matchingKey}" for "${variant}"`);
             break;
         }
     }
@@ -835,7 +905,7 @@ function playEnemyAnimation(enemyId, animationName) {
         // Start the requested animation
         animation.start(true);
         currentAnim = animation;
-        console.log(`Successfully playing animation: "${animation.name}"`);
+        debugLog(`Successfully playing animation: "${animation.name}"`);
         
         // Mark death animation as played if this is a death animation
         if (animationName.toLowerCase() === "death") {
@@ -845,9 +915,9 @@ function playEnemyAnimation(enemyId, animationName) {
         console.warn(`Animation not found: "${animationName}". Available animations:`, Object.keys(availableAnimations));
         
         // Log all available animations to help debug
-        console.log("All available animations:");
+        debugLog("All available animations:");
         Object.keys(availableAnimations).forEach(key => {
-            console.log(`- ${key}`);
+            debugLog(`- ${key}`);
         });
     }
 }
@@ -862,15 +932,35 @@ function setEnemyState(enemyId, state) {
     
     // If already in DEATH state, don't change state again
     if (enemy.state === "DEATH" && state === "DEATH") {
-        console.log(`Enemy ${enemyId} is already in DEATH state, ignoring state change`);
+        debugLog(`Enemy ${enemyId} is already in DEATH state, ignoring state change`);
         return;
     }
     
-    console.log(`Setting enemy ${enemyId} state from ${enemy.state} to ${state}`);
+    // Check if enemy is in aggro mode (was hit recently)
+    const currentTime = Date.now();
+    const timeSinceLastHit = enemy.lastHitTime ? currentTime - enemy.lastHitTime : Infinity;
+    const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || 10000); // Default to 10 seconds if not set
+    
+    // If transitioning from CHASE to PATROL but still in aggro mode, keep in CHASE state
+    if (enemy.state === "CHASE" && state === "PATROL" && isInAggroMode) {
+        debugLog(`Enemy ${enemyId} is still in aggro mode, staying in CHASE state`);
+        
+        // Check if player is in sight to determine if we should continue chasing
+        if (isPlayerInSight(enemyId)) {
+            debugLog(`Enemy ${enemyId} can see player, continuing chase`);
+            return; // Stay in CHASE state
+        } else {
+            debugLog(`Enemy ${enemyId} lost sight of player, but will continue searching`);
+            // We'll continue to PATROL state but with a special flag to indicate we're still searching
+            enemy.isSearching = true;
+        }
+    }
+    
+    debugLog(`Setting enemy ${enemyId} state from ${enemy.state} to ${state}`);
     
     // Special case: When transitioning from CHASE to PATROL, always create a new path
     if (enemy.state === "CHASE" && state === "PATROL") {
-        console.log(`Enemy ${enemyId} stopped chasing, creating new patrol path from current position`);
+        debugLog(`Enemy ${enemyId} stopped chasing, creating new patrol path from current position`);
         
         // Remove old path from existingPaths if it exists
         const oldPathIndex = existingPaths.indexOf(enemy.currentPath);
@@ -899,7 +989,7 @@ function setEnemyState(enemyId, state) {
             z: enemy.transform.position.z 
         });
         enemy.currentPathIndex = 0;
-        console.log("New patrol path generated:", enemy.currentPath);
+        debugLog("New patrol path generated:", enemy.currentPath);
         
         // Create visualization for new path
         createPathVisualization(enemyId, enemy.currentPath);
@@ -909,13 +999,13 @@ function setEnemyState(enemyId, state) {
     const configAnimation = CharacterEnemyConfig.getAnimationForMode(state);
     // Remove the "CharacterArmature|" prefix if it exists
     const animationName = configAnimation.replace("CharacterArmature|", "");
-    console.log(`Playing animation for state ${state}:`, animationName);
+    debugLog(`Playing animation for state ${state}:`, animationName);
     
     // Update movement speed based on state
     if (enemy.vehicle) {
         const speed = CharacterEnemyConfig.getSpeedForMode(state);
         enemy.vehicle.maxSpeed = speed;
-        console.log(`Updated enemy speed to ${speed} for state ${state}`);
+        debugLog(`Updated enemy speed to ${speed} for state ${state}`);
     }
     
     // Play the animation
@@ -1017,8 +1107,8 @@ function createPathVisualization(enemyId, path) {
     if (!enemy || !path || path.length < 2) return;
 
     // Check global settings
-    const showLines = window.showPathLines !== undefined ? window.showPathLines : false;
-    const showPoints = window.showWaypoints !== undefined ? window.showWaypoints : false;
+    const showLines = GameConfig.debug.showPathLines;
+    const showPoints = GameConfig.debug.showWaypoints;
     
     // Create points array for the path
     const points = path.map(waypoint => new BABYLON.Vector3(waypoint.x, 1, waypoint.z));
@@ -1050,7 +1140,7 @@ function createPathVisualization(enemyId, path) {
         points: waypointSpheres
     };
     
-    console.log(`[PATH] Created path visualization for enemy ${enemyId} with ${path.length} waypoints. Visibility: ${showPoints}`);
+    debugLog(`[PATH] Created path visualization for enemy ${enemyId} with ${path.length} waypoints. Visibility: ${showPoints}`);
 }
 
 // Add this function to update current waypoint visualization
@@ -1059,7 +1149,7 @@ function updateWaypointVisualization(enemyId) {
     if (!enemy || !pathVisualization[enemyId]) return;
     
     // Check if waypoints are visible
-    const showPoints = window.showWaypoints !== undefined ? window.showWaypoints : false;
+    const showPoints = GameConfig.debug.showWaypoints;
     
     // Update waypoint colors and visibility
     pathVisualization[enemyId].points.forEach((sphere, index) => {
@@ -1068,28 +1158,27 @@ function updateWaypointVisualization(enemyId) {
         
         // Only update colors if visible
         if (showPoints) {
-            const material = sphere.material;
+        const material = sphere.material;
             // Check if highlighting is enabled
-            const shouldHighlight = window.highlightCurrentWaypoint !== undefined ? 
-                                   window.highlightCurrentWaypoint : true;
+            const shouldHighlight = GameConfig.debug.highlightCurrentWaypoint;
             
-            if (index === enemy.currentPathIndex && shouldHighlight) {
-                material.diffuseColor = new BABYLON.Color3(1, 1, 0); // Yellow for current waypoint
-                material.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0);
-                // Make current waypoint slightly larger
-                sphere.scaling = new BABYLON.Vector3(1.3, 1.3, 1.3);
-            } else {
-                material.diffuseColor = new BABYLON.Color3(0, 1, 0); // Green for other waypoints
-                material.emissiveColor = new BABYLON.Color3(0, 0.5, 0);
-                // Reset scaling for non-current waypoints
-                sphere.scaling = new BABYLON.Vector3(1, 1, 1);
+        if (index === enemy.currentPathIndex && shouldHighlight) {
+            material.diffuseColor = new BABYLON.Color3(1, 1, 0); // Yellow for current waypoint
+            material.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0);
+            // Make current waypoint slightly larger
+            sphere.scaling = new BABYLON.Vector3(1.3, 1.3, 1.3);
+        } else {
+            material.diffuseColor = new BABYLON.Color3(0, 1, 0); // Green for other waypoints
+            material.emissiveColor = new BABYLON.Color3(0, 0.5, 0);
+            // Reset scaling for non-current waypoints
+            sphere.scaling = new BABYLON.Vector3(1, 1, 1);
             }
         }
     });
     
     // Update path line visibility
     if (pathVisualization[enemyId].lines) {
-        const showLines = window.showPathLines !== undefined ? window.showPathLines : false;
+        const showLines = GameConfig.debug.showPathLines;
         pathVisualization[enemyId].lines.isVisible = showLines;
     }
 }
@@ -1098,11 +1187,11 @@ function updateWaypointVisualization(enemyId) {
 function syncEnemyWithYuka(enemyId) {
     const enemy = loadedEnemies[enemyId];
     if (!enemy || !enemy.vehicle) return;
-    
+
     // Update position
     enemy.transform.position.x = enemy.vehicle.position.x;
     enemy.transform.position.z = enemy.vehicle.position.z;
-    
+
     // Update rotation based on velocity
     if (enemy.vehicle.velocity.length() > 0.01) {
         // Add PI to the angle to rotate the model 180 degrees
@@ -1131,20 +1220,25 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
     
     // If enemy is already dead, don't process the hit
     if (enemy.state === "DEATH") {
-        console.log(`Enemy ${enemyId} is already dead, ignoring hit`);
+        debugLog(`Enemy ${enemyId} is already dead, ignoring hit`);
         return;
     }
     
-    console.log(`Enemy ${enemyId} hit for ${damage} damage at position: x=${enemy.transform.position.x.toFixed(2)}, y=${enemy.transform.position.y.toFixed(2)}, z=${enemy.transform.position.z.toFixed(2)}`);
+    debugLog(`Enemy ${enemyId} hit for ${damage} damage at position: x=${enemy.transform.position.x.toFixed(2)}, y=${enemy.transform.position.y.toFixed(2)}, z=${enemy.transform.position.z.toFixed(2)}`);
+    
+    // Set the last hit time to make the enemy chase the player
+    enemy.lastHitTime = Date.now();
+    enemy.aggroTime = GameConfig.enemies.aggroTime;
+    debugLog(`Enemy ${enemyId} will chase player for ${GameConfig.enemies.aggroTime/1000} seconds after being hit`);
     
     // Reduce enemy health
-    if (!enemy.health) enemy.health = 100; // Initialize health if not set
+    if (!enemy.health) enemy.health = GameConfig.enemies.health; // Initialize health if not set
     enemy.health -= damage;
-    console.log(`Enemy ${enemyId} health reduced to ${enemy.health}`);
+    debugLog(`Enemy ${enemyId} health reduced to ${enemy.health}`);
     
     // Check if enemy should die
     if (enemy.health <= 0) {
-        console.log(`Enemy ${enemyId} has died!`);
+        debugLog(`Enemy ${enemyId} has died!`);
         
         // Set a flag to indicate this enemy is being processed for death
         // This prevents multiple death animations from being triggered
@@ -1158,8 +1252,8 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
             window.createDeathEffect(enemy.transform.position.clone());
         }
         
-        // Fixed duration for death animation - this is more reliable than trying to calculate it
-        const deathAnimDuration = 500; // 500ms is enough to see the death animation but not so long that it stands back up
+        // Fixed duration for death animation
+        const deathAnimDuration = GameConfig.enemies.deathAnimDuration;
         
         // Remove enemy after the death animation finishes
         setTimeout(() => {
@@ -1181,14 +1275,14 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
     setEnemyState(enemyId, "HIT_REACT");
     
     // Log available animations to help debug hit reaction
-    console.log("Available animations for hit reaction check:");
+    debugLog("Available animations for hit reaction check:");
     Object.keys(availableAnimations).forEach(key => {
-        console.log(`- ${key}`);
+        debugLog(`- ${key}`);
     });
     
     // Push enemy back in the direction of the hit
     if (hitDirection) {
-        console.log(`Hit direction: x=${hitDirection.x.toFixed(2)}, y=${hitDirection.y.toFixed(2)}, z=${hitDirection.z.toFixed(2)}`);
+        debugLog(`Hit direction: x=${hitDirection.x.toFixed(2)}, y=${hitDirection.y.toFixed(2)}, z=${hitDirection.z.toFixed(2)}`);
         
         // Normalize direction and scale for push back distance
         const pushDistance = 0.5; // Push back distance in units
@@ -1225,10 +1319,10 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
         // Only change state if still in HIT_REACT (might have died or changed state otherwise)
         if (enemy && enemy.state === "HIT_REACT") {
             // Return to patrol or chase state based on player proximity
-            const isPlayerInRange = checkPlayerInRange(enemyId, 12);
+            const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detectionRange);
             setEnemyState(enemyId, isPlayerInRange ? "CHASE" : "PATROL");
         }
-    }, 500); // Duration of hit reaction
+    }, GameConfig.enemies.hitReactionDuration);
 }
 
 // Make handleEnemyHit function globally accessible
@@ -1337,7 +1431,7 @@ function debugEnemyMovement(enemyId) {
     
     // Log to console occasionally
     if (Math.random() < 0.05) { // ~5% chance each update
-        console.log(`[DEBUG] Enemy ${enemyId} - State: ${enemy.state}, ` +
+        debugLog(`[DEBUG] Enemy ${enemyId} - State: ${enemy.state}, ` +
                    `Position: (${enemy.transform.position.x.toFixed(2)}, ${enemy.transform.position.z.toFixed(2)}), ` +
                    `Rotation: ${enemy.root.rotation.y.toFixed(2)}, ` +
                    `Velocity: (${enemy.vehicle?.velocity.x.toFixed(2) || 0}, ${enemy.vehicle?.velocity.z.toFixed(2) || 0})`);
@@ -1369,10 +1463,10 @@ window.debugEnemyMovement = debugEnemyMovement;
 window.toggleEnemyDebug = toggleEnemyDebug;
 
 // Initialize debug mode with console message
-console.log("Enemy debug functions available. Type 'toggleEnemyDebug(true)' in console to enable debug visualization.");
-console.log("Available debug commands:");
-console.log("- toggleEnemyDebug(true/false) - Enable/disable debug visualization");
-console.log("- debugEnemyMovement('enemy_id') - Debug specific enemy");
+debugLog("Enemy debug functions available. Type 'toggleEnemyDebug(true)' in console to enable debug visualization.");
+debugLog("Available debug commands:");
+debugLog("- toggleEnemyDebug(true/false) - Enable/disable debug visualization");
+debugLog("- debugEnemyMovement('enemy_id') - Debug specific enemy");
 
 // Modify updateEnemyState to include debug calls
 const originalUpdateEnemyState = updateEnemyState;
@@ -1392,7 +1486,7 @@ updateEnemyPatrol = function(enemyId) {
     const enemy = loadedEnemies[enemyId];
     if (enemy && window.showEnemyDebug) {
         // Log before update
-        console.log(`[PATROL-PRE] Enemy ${enemyId} - ` +
+        debugLog(`[PATROL-PRE] Enemy ${enemyId} - ` +
                    `Position: (${enemy.transform.position.x.toFixed(2)}, ${enemy.transform.position.z.toFixed(2)}), ` +
                    `Rotation: ${enemy.root.rotation.y.toFixed(2)}, ` +
                    `Waypoint: ${enemy.currentPathIndex}/${enemy.currentPath?.length || 0}`);
@@ -1403,7 +1497,7 @@ updateEnemyPatrol = function(enemyId) {
     
     if (enemy && window.showEnemyDebug) {
         // Log after update
-        console.log(`[PATROL-POST] Enemy ${enemyId} - ` +
+        debugLog(`[PATROL-POST] Enemy ${enemyId} - ` +
                    `Position: (${enemy.transform.position.x.toFixed(2)}, ${enemy.transform.position.z.toFixed(2)}), ` +
                    `Rotation: ${enemy.root.rotation.y.toFixed(2)}, ` +
                    `Waypoint: ${enemy.currentPathIndex}/${enemy.currentPath?.length || 0}`);
@@ -1435,7 +1529,7 @@ function checkEnemyRotation(enemyId) {
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
         
         // Log rotation info
-        console.log(`[ROTATION CHECK] Enemy ${enemyId} - ` +
+        debugLog(`[ROTATION CHECK] Enemy ${enemyId} - ` +
                    `Waypoint: (${currentWaypoint.x.toFixed(2)}, ${currentWaypoint.z.toFixed(2)}), ` +
                    `Position: (${enemy.transform.position.x.toFixed(2)}, ${enemy.transform.position.z.toFixed(2)}), ` +
                    `Direction: (${dx.toFixed(2)}, ${dz.toFixed(2)}), ` +
@@ -1445,7 +1539,7 @@ function checkEnemyRotation(enemyId) {
         
         // Force set rotation if difference is too large
         if (Math.abs(angleDiff) > 0.5) {
-            console.log(`[ROTATION FIX] Enemy ${enemyId} - Forcing rotation to target angle`);
+            debugLog(`[ROTATION FIX] Enemy ${enemyId} - Forcing rotation to target angle`);
             enemy.root.rotation.y = targetAngle;
         }
     }
@@ -1500,9 +1594,9 @@ window.forceEnemyFaceWaypoint = forceEnemyFaceWaypoint;
 
 // Add function to toggle path visualization
 function togglePathVisualization(show) {
-    console.log(`[PATH] Toggling path visualization: ${show}`);
-    window.showWaypoints = show;
-    window.showPathLines = show;
+    debugLog(`[PATH] Toggling path visualization: ${show}`);
+    GameConfig.debug.showWaypoints = show;
+    GameConfig.debug.showPathLines = show;
     
     // Update all existing path visualizations
     for (const enemyId in pathVisualization) {
@@ -1540,11 +1634,11 @@ function setEnemyModelOrientation(enemyId, direction) {
     
     // Log all meshes in the enemy model to help identify the character's body parts
     if (!enemy._meshesLogged) {
-        console.log(`[MODEL] Logging all meshes for enemy ${enemyId}:`);
+        debugLog(`[MODEL] Logging all meshes for enemy ${enemyId}:`);
         if (enemy.root && enemy.root.getChildMeshes) {
             const childMeshes = enemy.root.getChildMeshes();
             childMeshes.forEach((mesh, index) => {
-                console.log(`[MODEL] Mesh ${index}: ${mesh.name}`);
+                debugLog(`[MODEL] Mesh ${index}: ${mesh.name}`);
             });
         }
         enemy._meshesLogged = true;
@@ -1600,7 +1694,7 @@ function setEnemyModelOrientation(enemyId, direction) {
             characterBody.rotationQuaternion = rotationQuaternion;
         }
         
-        console.log(`[MODEL] Applied orientation to ${characterBody.name} for enemy ${enemyId}`);
+        debugLog(`[MODEL] Applied orientation to ${characterBody.name} for enemy ${enemyId}`);
         
         // Also apply to root for good measure
         if (!enemy.root.rotationQuaternion) {
@@ -1634,7 +1728,7 @@ function rotateEnemyTransform(enemyId, direction) {
     enemy.transform.rotation = new BABYLON.Vector3(0, angle, 0);
     
     // Log the rotation
-    console.log(`[TRANSFORM] Rotated enemy ${enemyId} transform to angle ${angle.toFixed(2)} rad (${(angle * 180 / Math.PI).toFixed(2)}°)`);
+    debugLog(`[TRANSFORM] Rotated enemy ${enemyId} transform to angle ${angle.toFixed(2)} rad (${(angle * 180 / Math.PI).toFixed(2)}°)`);
     
     return angle;
 }
@@ -1661,10 +1755,10 @@ function rotateEnemySkeleton(enemyId, direction) {
     
     // Log all bones in the skeleton to help identify the root bone
     if (!enemy._bonesLogged) {
-        console.log(`[SKELETON] Logging all bones for enemy ${enemyId}:`);
+        debugLog(`[SKELETON] Logging all bones for enemy ${enemyId}:`);
         for (let i = 0; i < skeleton.bones.length; i++) {
             const bone = skeleton.bones[i];
-            console.log(`[SKELETON] Bone ${i}: ${bone.name}, parent: ${bone.getParent()?.name || 'none'}`);
+            debugLog(`[SKELETON] Bone ${i}: ${bone.name}, parent: ${bone.getParent()?.name || 'none'}`);
         }
         enemy._bonesLogged = true;
     }
@@ -1697,7 +1791,7 @@ function rotateEnemySkeleton(enemyId, direction) {
         // Apply the rotation to the root bone
         rootBone.setRotationQuaternion(rotationQuaternion, BABYLON.Space.WORLD, enemy.root);
         
-        console.log(`[SKELETON] Rotated root bone ${rootBone.name} for enemy ${enemyId} to angle ${angle.toFixed(2)} rad`);
+        debugLog(`[SKELETON] Rotated root bone ${rootBone.name} for enemy ${enemyId} to angle ${angle.toFixed(2)} rad`);
     } else {
         console.warn(`[SKELETON] Could not find root bone for enemy ${enemyId}`);
     }
@@ -1734,7 +1828,7 @@ function setEnemyRotationMatrix(enemyId, direction) {
     enemy.transform.rotationQuaternion = null;
     enemy.transform.rotation.y = angle;
     
-    console.log(`[MATRIX] Applied rotation matrix to enemy ${enemyId} with angle ${angle.toFixed(2)} rad`);
+    debugLog(`[MATRIX] Applied rotation matrix to enemy ${enemyId} with angle ${angle.toFixed(2)} rad`);
     
     return angle;
 }
@@ -1768,9 +1862,9 @@ function forceAnimationDirection(enemyId, direction) {
     
     // Log animation targets if not already logged
     if (!enemy._animationTargetsLogged) {
-        console.log(`[ANIMATION] Logging animation targets for enemy ${enemyId}:`);
+        debugLog(`[ANIMATION] Logging animation targets for enemy ${enemyId}:`);
         targetNodes.forEach((node, index) => {
-            console.log(`[ANIMATION] Target ${index}: ${node.name}, type: ${node.constructor.name}`);
+            debugLog(`[ANIMATION] Target ${index}: ${node.name}, type: ${node.constructor.name}`);
         });
         enemy._animationTargetsLogged = true;
     }
@@ -1796,7 +1890,7 @@ function forceAnimationDirection(enemyId, direction) {
             }
         });
         
-        console.log(`[ANIMATION] Applied rotation to ${transformNodes.length} animation targets for enemy ${enemyId}`);
+        debugLog(`[ANIMATION] Applied rotation to ${transformNodes.length} animation targets for enemy ${enemyId}`);
     } else {
         console.warn(`[ANIMATION] No transform nodes found in animation targets for enemy ${enemyId}`);
     }
@@ -1812,18 +1906,18 @@ function createDamageIndicator(position, damage) {
     if (!scene) return;
     
     // Create a dynamic texture for the text
-    const textSize = 256;
+    const textSize = 512; // Increased from 256 for higher resolution
     const dynamicTexture = new BABYLON.DynamicTexture("damageTexture", textSize, scene, true);
     dynamicTexture.hasAlpha = true;
     
-    // Set font and draw text
-    const fontSize = 80;
+    // Set font and draw text - increased font size
+    const fontSize = 160; // Increased from 80
     const font = `bold ${fontSize}px Arial`;
     dynamicTexture.drawText(`${damage}`, null, null, font, "#ff0000", "transparent", true);
     
-    // Create a plane to display the texture
-    const plane = BABYLON.MeshBuilder.CreatePlane("damageIndicator", { width: 1, height: 0.5 }, scene);
-    plane.position = new BABYLON.Vector3(position.x, position.y + 2, position.z); // Position above enemy
+    // Create a plane to display the texture - increased width and height
+    const plane = BABYLON.MeshBuilder.CreatePlane("damageIndicator", { width: 3, height: 1.5 }, scene); // Increased from width: 1, height: 0.5
+    plane.position = new BABYLON.Vector3(position.x, position.y + 2.5, position.z); // Positioned slightly higher
     
     // Create material with the dynamic texture
     const material = new BABYLON.StandardMaterial("damageMaterial", scene);
@@ -1842,9 +1936,9 @@ function createDamageIndicator(position, damage) {
     plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
     
     // Animate the indicator
-    const startY = position.y + 2;
-    const endY = position.y + 4;
-    const duration = 1000; // ms
+    const startY = position.y + 2.5; // Adjusted to match new position
+    const endY = position.y + 5; // Increased end height
+    const duration = 1200; // Slightly longer duration for better visibility
     const startTime = Date.now();
     
     // Animation function
@@ -1857,8 +1951,8 @@ function createDamageIndicator(position, damage) {
             const progress = elapsed / duration;
             plane.position.y = startY + (endY - startY) * progress;
             
-            // Fade out as it rises
-            material.alpha = 1 - progress;
+            // Fade out as it rises, but slower to keep it visible longer
+            material.alpha = 1 - (progress * 0.8); // Slower fade out
             
             // Continue animation
             requestAnimationFrame(animateIndicator);
@@ -1876,17 +1970,17 @@ function createDamageIndicator(position, damage) {
 
 // Function to list all available animations
 function listAvailableAnimations() {
-    console.log("=== LISTING ALL AVAILABLE ANIMATIONS ===");
+    debugLog("=== LISTING ALL AVAILABLE ANIMATIONS ===");
     if (!availableAnimations) {
         console.warn("No animations available");
         return;
     }
     
-    console.log(`Found ${Object.keys(availableAnimations).length} animations:`);
+    debugLog(`Found ${Object.keys(availableAnimations).length} animations:`);
     Object.keys(availableAnimations).forEach((key, index) => {
-        console.log(`${index + 1}. "${key}"`);
+        debugLog(`${index + 1}. "${key}"`);
     });
-    console.log("=======================================");
+    debugLog("=======================================");
 }
 
 // Make the function globally accessible
@@ -1902,3 +1996,97 @@ loadEnemyModel = async function(sceneParam, position, param1 = null, param2 = nu
     
     return result;
 };
+
+// Check if player is in sight of the enemy (no obstacles in between)
+function isPlayerInSight(enemyId) {
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy || !playerMesh) return false;
+    
+    // Get positions
+    const enemyPos = enemy.transform.position;
+    const playerPos = playerMesh.position;
+    
+    // Calculate direction to player
+    const direction = new BABYLON.Vector3(
+        playerPos.x - enemyPos.x,
+        playerPos.y - enemyPos.y,
+        playerPos.z - enemyPos.z
+    );
+    
+    // Calculate distance to player
+    const distance = direction.length();
+    
+    // If player is too far, they're not in sight
+    if (distance > 20) { // 20 units max sight distance
+        return false;
+    }
+    
+    // Normalize direction
+    direction.normalize();
+    
+    // Create a ray from enemy to player
+    const ray = new BABYLON.Ray(
+        new BABYLON.Vector3(enemyPos.x, enemyPos.y + 1.5, enemyPos.z), // Start from enemy's head height
+        direction,
+        distance
+    );
+    
+    // Check for obstacles between enemy and player
+    const hit = scene.pickWithRay(ray, mesh => {
+        // Ignore player mesh, enemy meshes, and non-collidable objects
+        return mesh !== playerMesh && 
+               !mesh.name.includes('enemy') && 
+               !mesh.name.includes('hitbox') &&
+               !mesh.name.includes('projectile') &&
+               mesh.checkCollisions;
+    });
+    
+    // If there's a hit before reaching the player, the player is not in sight
+    if (hit.hit && hit.distance < distance) {
+        return false;
+    }
+    
+    // Player is in sight
+    return true;
+}
+
+// Generate a search path that leads towards the player's position
+function generateSearchPath(startPos, targetPos) {
+    // Calculate direction to target
+    const dx = targetPos.x - startPos.x;
+    const dz = targetPos.z - startPos.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    
+    // Normalize direction
+    const dirX = dx / distance;
+    const dirZ = dz / distance;
+    
+    // Create a path with waypoints that lead towards the target
+    const path = [];
+    
+    // Add waypoints along the path to the target
+    const numWaypoints = GameConfig.patrolPaths.searchPathMinWaypoints + 
+                         Math.floor(Math.random() * (GameConfig.patrolPaths.searchPathMaxWaypoints - 
+                                                    GameConfig.patrolPaths.searchPathMinWaypoints + 1));
+    
+    for (let i = 0; i < numWaypoints; i++) {
+        // Calculate progress along the path (0 to 1)
+        const progress = (i + 1) / numWaypoints;
+        
+        // Add some randomness to the waypoints
+        const randomOffsetX = (Math.random() - 0.5) * 4; // -2 to 2
+        const randomOffsetZ = (Math.random() - 0.5) * 4; // -2 to 2
+        
+        // Calculate waypoint position
+        const waypointX = startPos.x + dirX * distance * progress + randomOffsetX;
+        const waypointZ = startPos.z + dirZ * distance * progress + randomOffsetZ;
+        
+        // Add waypoint to path
+        path.push({ x: waypointX, z: waypointZ });
+    }
+    
+    // Add the target position as the final waypoint
+    path.push({ x: targetPos.x, z: targetPos.z });
+    
+    return path;
+}

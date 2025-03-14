@@ -7,7 +7,8 @@ class CharacterEnemyConfig {
         PATROL: "PATROL",
         CHASE: "CHASE",
         ATTACK: "ATTACK",
-        DEATH: "DEATH"
+        DEATH: "DEATH",
+        HIT_REACT: "HIT_REACT"
     };
 
     constructor() {
@@ -34,6 +35,10 @@ class CharacterEnemyConfig {
             DEATH: {
                 animation: "CharacterArmature|Death",
                 speed: 0.0
+            },
+            HIT_REACT: {
+                animation: "CharacterArmature|HitReact",
+                speed: 0.0
             }
         };
         
@@ -42,7 +47,8 @@ class CharacterEnemyConfig {
             "CharacterArmature|Idle", 
             "CharacterArmature|Death", 
             "CharacterArmature|Run", 
-            "CharacterArmature|Walk"
+            "CharacterArmature|Walk",
+            "CharacterArmature|HitReact"
         ];
     }
 
@@ -57,6 +63,8 @@ class CharacterEnemyConfig {
                 return "CharacterArmature|Run";
             case this.MODES.DEATH:
                 return "CharacterArmature|Death";
+            case this.MODES.HIT_REACT:
+                return "CharacterArmature|HitReact";
             default:
                 return "CharacterArmature|Idle";
         }
@@ -69,9 +77,12 @@ class CharacterEnemyConfig {
             case this.MODES.PATROL:
                 return 2;
             case this.MODES.CHASE:
-            case this.MODES.ATTACK:
                 return 4;
+            case this.MODES.ATTACK:
+                return 3;
             case this.MODES.DEATH:
+                return 0;
+            case this.MODES.HIT_REACT:
                 return 0;
             default:
                 return 0;

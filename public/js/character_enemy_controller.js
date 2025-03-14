@@ -142,6 +142,9 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
             availableAnimations[animGroup.name] = animGroup;
         });
         
+        // List all available animations to help with debugging
+        listAvailableAnimations();
+        
         // Create transform node for positioning
         const enemyTransform = new BABYLON.TransformNode(`enemy_${enemyId}_root`, scene);
         enemyRoot.parent = enemyTransform;
@@ -351,6 +354,9 @@ function updateEnemyState(enemyId) {
                     enemyShootAtPlayer(enemyId);
                 }
             }
+            break;
+        case "HIT_REACT":
+            // Do nothing during hit reaction, it will transition back automatically via setTimeout
             break;
         case "DEATH":
             // Do nothing, enemy is dead
@@ -742,12 +748,26 @@ function playEnemyAnimation(enemyId, animationName) {
         return;
     }
     
-    // Special case for hit reaction - try to play a hit animation if available
-    if (animationName.toLowerCase() === "idle" && loadedEnemies[enemyId]?.state === "HIT_REACT") {
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy) {
+        console.error(`Enemy ${enemyId} not found in loadedEnemies!`);
+        return;
+    }
+    
+    // Special case for death animation - make sure we only play it once
+    if (animationName.toLowerCase() === "death" && enemy._deathAnimationPlayed) {
+        console.log(`Death animation already played for enemy ${enemyId}, skipping`);
+        return;
+    }
+    
+    // Special case for hit reaction - directly try to find the HitReact animation
+    if (enemy.state === "HIT_REACT") {
+        console.log(`Enemy ${enemyId} is in HIT_REACT state, looking for hit reaction animation`);
+        
         // Try to find a hit reaction animation
         const hitAnimationVariants = [
-            "Hit", "HitReact", "TakeHit", "Damage", "Hurt",
-            "CharacterArmature|Hit", "CharacterArmature|HitReact", 
+            "HitReact", "Hit", "TakeHit", "Damage", "Hurt",
+            "CharacterArmature|HitReact", "CharacterArmature|Hit", 
             "CharacterArmature|TakeHit", "CharacterArmature|Damage", 
             "CharacterArmature|Hurt"
         ];
@@ -768,6 +788,14 @@ function playEnemyAnimation(enemyId, animationName) {
                 animationName = matchingKey;
                 break;
             }
+        }
+        
+        // Log all available animations to help debug if we couldn't find a hit animation
+        if (animationName === "HitReact") {
+            console.log("Available animations for hit reaction:");
+            Object.keys(availableAnimations).forEach(key => {
+                console.log(`- ${key}`);
+            });
         }
     }
     
@@ -808,8 +836,19 @@ function playEnemyAnimation(enemyId, animationName) {
         animation.start(true);
         currentAnim = animation;
         console.log(`Successfully playing animation: "${animation.name}"`);
+        
+        // Mark death animation as played if this is a death animation
+        if (animationName.toLowerCase() === "death") {
+            enemy._deathAnimationPlayed = true;
+        }
     } else {
         console.warn(`Animation not found: "${animationName}". Available animations:`, Object.keys(availableAnimations));
+        
+        // Log all available animations to help debug
+        console.log("All available animations:");
+        Object.keys(availableAnimations).forEach(key => {
+            console.log(`- ${key}`);
+        });
     }
 }
 
@@ -818,6 +857,12 @@ function setEnemyState(enemyId, state) {
     const enemy = loadedEnemies[enemyId];
     if (!enemy) {
         console.error("Enemy not found for ID:", enemyId);
+        return;
+    }
+    
+    // If already in DEATH state, don't change state again
+    if (enemy.state === "DEATH" && state === "DEATH") {
+        console.log(`Enemy ${enemyId} is already in DEATH state, ignoring state change`);
         return;
     }
     
@@ -1084,6 +1129,12 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
         return;
     }
     
+    // If enemy is already dead, don't process the hit
+    if (enemy.state === "DEATH") {
+        console.log(`Enemy ${enemyId} is already dead, ignoring hit`);
+        return;
+    }
+    
     console.log(`Enemy ${enemyId} hit for ${damage} damage at position: x=${enemy.transform.position.x.toFixed(2)}, y=${enemy.transform.position.y.toFixed(2)}, z=${enemy.transform.position.z.toFixed(2)}`);
     
     // Reduce enemy health
@@ -1094,23 +1145,46 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
     // Check if enemy should die
     if (enemy.health <= 0) {
         console.log(`Enemy ${enemyId} has died!`);
+        
+        // Set a flag to indicate this enemy is being processed for death
+        // This prevents multiple death animations from being triggered
+        enemy._deathProcessing = true;
+        
+        // Set enemy state to DEATH
         setEnemyState(enemyId, "DEATH");
         
-        // Create death effect if available
+        // Create death effect immediately
         if (window.createDeathEffect) {
             window.createDeathEffect(enemy.transform.position.clone());
         }
         
-        // Remove enemy after a short delay
+        // Fixed duration for death animation - this is more reliable than trying to calculate it
+        const deathAnimDuration = 500; // 500ms is enough to see the death animation but not so long that it stands back up
+        
+        // Remove enemy after the death animation finishes
         setTimeout(() => {
-            disposeEnemy(enemyId);
-        }, 2000);
+            // Check if enemy still exists (might have been disposed already)
+            if (loadedEnemies[enemyId]) {
+                disposeEnemy(enemyId);
+                
+                // Notify player_main.js that the enemy died (for respawn logic)
+                if (window.handleEnemyDeath) {
+                    window.handleEnemyDeath(enemyId);
+                }
+            }
+        }, deathAnimDuration);
         
         return;
     }
     
     // Set enemy to hit react state
     setEnemyState(enemyId, "HIT_REACT");
+    
+    // Log available animations to help debug hit reaction
+    console.log("Available animations for hit reaction check:");
+    Object.keys(availableAnimations).forEach(key => {
+        console.log(`- ${key}`);
+    });
     
     // Push enemy back in the direction of the hit
     if (hitDirection) {
@@ -1799,3 +1873,32 @@ function createDamageIndicator(position, damage) {
     // Start animation
     animateIndicator();
 }
+
+// Function to list all available animations
+function listAvailableAnimations() {
+    console.log("=== LISTING ALL AVAILABLE ANIMATIONS ===");
+    if (!availableAnimations) {
+        console.warn("No animations available");
+        return;
+    }
+    
+    console.log(`Found ${Object.keys(availableAnimations).length} animations:`);
+    Object.keys(availableAnimations).forEach((key, index) => {
+        console.log(`${index + 1}. "${key}"`);
+    });
+    console.log("=======================================");
+}
+
+// Make the function globally accessible
+window.listAvailableAnimations = listAvailableAnimations;
+
+// Call this function after animations are loaded
+const originalLoadEnemyModel = loadEnemyModel;
+loadEnemyModel = async function(sceneParam, position, param1 = null, param2 = null, callback = null) {
+    const result = await originalLoadEnemyModel(sceneParam, position, param1, param2, callback);
+    
+    // List animations after loading
+    setTimeout(listAvailableAnimations, 1000);
+    
+    return result;
+};

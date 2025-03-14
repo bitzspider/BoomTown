@@ -1237,6 +1237,7 @@ function shootProjectile() {
         particleSystem: particleSystem,
         direction: forward,
         speed: 1.0, // Projectile speed
+        gravity: -0.001, // Add gravity to projectile
         createdTime: currentTime,
         lifespan: 3000 // 3 seconds in ms
     };
@@ -1313,6 +1314,12 @@ function updateProjectiles() {
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const projectile = projectiles[i];
         
+        // Add debug check for gravity property
+        if (projectile.gravity === undefined) {
+            console.warn(`Projectile ${projectile.id} has no gravity property, setting default`);
+            projectile.gravity = -0.001;
+        }
+        
         // Apply gravity to projectile
         projectile.direction.y += projectile.gravity;
         
@@ -1323,6 +1330,11 @@ function updateProjectiles() {
         projectile.mesh.position.addInPlace(
             projectile.direction.scale(projectile.speed)
         );
+        
+        // Debug log occasionally
+        if (Math.random() < 0.01) {
+            console.log(`[PROJECTILE] ${projectile.id} position: (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)}), direction: (${projectile.direction.x.toFixed(2)}, ${projectile.direction.y.toFixed(2)}, ${projectile.direction.z.toFixed(2)})`);
+        }
         
         // Check for collisions with walls
         if (checkCollision(projectile.mesh.position)) {
@@ -1379,9 +1391,9 @@ function updateProjectiles() {
                 const enemy = window.loadedEnemies[enemyId];
                 if (!enemy) continue;
                 
-                // Check head hitbox collision using Babylon's intersectsMesh
+                // Method 1: Direct mesh intersection check
                 if (enemy.headHitbox && projectile.mesh.intersectsMesh(enemy.headHitbox, false)) {
-                    console.log(`Enemy ${enemyId} headshot!`);
+                    console.log(`Enemy ${enemyId} headshot with intersectsMesh!`);
                     const damage = 50; // More damage for headshots
                     
                     // Call hit reaction
@@ -1399,9 +1411,9 @@ function updateProjectiles() {
                     break;
                 }
                 
-                // Check body hitbox collision using Babylon's intersectsMesh
+                // Method 2: Direct mesh intersection check for body
                 if (!hitEnemy && enemy.bodyHitbox && projectile.mesh.intersectsMesh(enemy.bodyHitbox, false)) {
-                    console.log(`Enemy ${enemyId} body shot!`);
+                    console.log(`Enemy ${enemyId} body shot with intersectsMesh!`);
                     const damage = 25; // Normal damage for body shots
                     
                     // Call hit reaction
@@ -1419,9 +1431,105 @@ function updateProjectiles() {
                     break;
                 }
                 
-                // Alternative: Use ray casting for more precise collision detection
+                // Method 3: Bounding box intersection check
+                if (!hitEnemy) {
+                    try {
+                        // Get bounding info for projectile and hitboxes
+                        const projectileBoundingInfo = projectile.mesh.getBoundingInfo();
+                        const headBoundingInfo = enemy.headHitbox ? enemy.headHitbox.getBoundingInfo() : null;
+                        const bodyBoundingInfo = enemy.bodyHitbox ? enemy.bodyHitbox.getBoundingInfo() : null;
+                        
+                        // Check head hitbox with bounding box - ensure all properties exist
+                        if (headBoundingInfo && 
+                            headBoundingInfo.boundingSphere && 
+                            headBoundingInfo.boundingSphere.centerWorld && 
+                            typeof headBoundingInfo.boundingSphere.radiusWorld === 'number' &&
+                            projectileBoundingInfo && 
+                            projectileBoundingInfo.boundingBox) {
+                            
+                            // Use a simpler distance check instead of the complex bounding box check
+                            const distance = BABYLON.Vector3.Distance(
+                                projectile.mesh.position,
+                                headBoundingInfo.boundingSphere.centerWorld
+                            );
+                            
+                            if (distance <= headBoundingInfo.boundingSphere.radiusWorld + 0.2) { // Add a small buffer
+                                console.log(`Enemy ${enemyId} headshot with bounding sphere distance! Distance: ${distance.toFixed(2)}`);
+                                const damage = 50; // More damage for headshots
+                                
+                                if (window.handleEnemyHit) {
+                                    const hitDirection = projectile.direction.clone();
+                                    window.handleEnemyHit(enemyId, damage, hitDirection);
+                                }
+                                
+                                createHitEffect(enemy.headHitbox.getAbsolutePosition());
+                                cleanupProjectile(projectile);
+                                projectiles.splice(i, 1);
+                                hitEnemy = true;
+                                break;
+                            }
+                        }
+                        
+                        // Check body hitbox with bounding box - ensure all properties exist
+                        if (!hitEnemy && 
+                            bodyBoundingInfo && 
+                            bodyBoundingInfo.boundingSphere && 
+                            bodyBoundingInfo.boundingSphere.centerWorld && 
+                            typeof bodyBoundingInfo.boundingSphere.radiusWorld === 'number' &&
+                            projectileBoundingInfo && 
+                            projectileBoundingInfo.boundingBox) {
+                            
+                            // Use a simpler distance check instead of the complex bounding box check
+                            const distance = BABYLON.Vector3.Distance(
+                                projectile.mesh.position,
+                                bodyBoundingInfo.boundingSphere.centerWorld
+                            );
+                            
+                            if (distance <= bodyBoundingInfo.boundingSphere.radiusWorld + 0.2) { // Add a small buffer
+                                console.log(`Enemy ${enemyId} body shot with bounding sphere distance! Distance: ${distance.toFixed(2)}`);
+                                const damage = 25; // Normal damage for body shots
+                                
+                                if (window.handleEnemyHit) {
+                                    const hitDirection = projectile.direction.clone();
+                                    window.handleEnemyHit(enemyId, damage, hitDirection);
+                                }
+                                
+                                createHitEffect(enemy.bodyHitbox.getAbsolutePosition());
+                                cleanupProjectile(projectile);
+                                projectiles.splice(i, 1);
+                                hitEnemy = true;
+                                break;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn(`Error in bounding box collision check: ${error.message}`);
+                    }
+                }
+                
+                // Method 4: Ray casting for more precise collision detection
                 if (!hitEnemy && enemy.headHitbox) {
+                    // Debug ray occasionally
+                    const shouldDebugRay = Math.random() < 0.05; // 5% chance to debug
+                    
+                    if (shouldDebugRay) {
+                        console.log(`[RAY] Casting ray from (${previousPosition.x.toFixed(2)}, ${previousPosition.y.toFixed(2)}, ${previousPosition.z.toFixed(2)}) to (${projectile.mesh.position.x.toFixed(2)}, ${projectile.mesh.position.y.toFixed(2)}, ${projectile.mesh.position.z.toFixed(2)})`);
+                        console.log(`[RAY] Ray direction: (${ray.direction.x.toFixed(2)}, ${ray.direction.y.toFixed(2)}, ${ray.direction.z.toFixed(2)}), length: ${ray.length.toFixed(2)}`);
+                        
+                        // Visualize ray for debugging
+                        const rayHelper = new BABYLON.RayHelper(ray);
+                        rayHelper.show(scene, new BABYLON.Color3(1, 0, 0));
+                        setTimeout(() => rayHelper.dispose(), 1000); // Show for 1 second
+                    }
+                    
                     const headHit = scene.pickWithRay(ray, mesh => mesh === enemy.headHitbox);
+                    
+                    if (shouldDebugRay) {
+                        console.log(`[RAY] Head hit result: ${headHit.hit ? 'HIT' : 'MISS'}`);
+                        if (headHit.hit) {
+                            console.log(`[RAY] Hit point: (${headHit.pickedPoint.x.toFixed(2)}, ${headHit.pickedPoint.y.toFixed(2)}, ${headHit.pickedPoint.z.toFixed(2)}), distance: ${headHit.distance.toFixed(2)}`);
+                        }
+                    }
+                    
                     if (headHit && headHit.hit) {
                         console.log(`Enemy ${enemyId} headshot with ray!`);
                         const damage = 50; // More damage for headshots
@@ -1455,6 +1563,64 @@ function updateProjectiles() {
                         projectiles.splice(i, 1);
                         hitEnemy = true;
                         break;
+                    }
+                }
+                
+                // Method 5: Simple distance-based collision check (fallback)
+                if (!hitEnemy) {
+                    // Get positions
+                    const projectilePos = projectile.mesh.position;
+                    const headPos = enemy.headHitbox ? enemy.headHitbox.getAbsolutePosition() : null;
+                    const bodyPos = enemy.bodyHitbox ? enemy.bodyHitbox.getAbsolutePosition() : null;
+                    
+                    // Check head hitbox with distance
+                    if (headPos) {
+                        const dx = projectilePos.x - headPos.x;
+                        const dy = projectilePos.y - headPos.y;
+                        const dz = projectilePos.z - headPos.z;
+                        const distanceToHead = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        
+                        // Use a generous collision radius (0.8 is the diameter of the head hitbox)
+                        if (distanceToHead < 0.8) {
+                            console.log(`Enemy ${enemyId} headshot with distance check! Distance: ${distanceToHead.toFixed(2)}`);
+                            const damage = 50; // More damage for headshots
+                            
+                            if (window.handleEnemyHit) {
+                                const hitDirection = projectile.direction.clone();
+                                window.handleEnemyHit(enemyId, damage, hitDirection);
+                            }
+                            
+                            createHitEffect(headPos);
+                            cleanupProjectile(projectile);
+                            projectiles.splice(i, 1);
+                            hitEnemy = true;
+                            break;
+                        }
+                    }
+                    
+                    // Check body hitbox with distance
+                    if (!hitEnemy && bodyPos) {
+                        const dx = projectilePos.x - bodyPos.x;
+                        const dy = projectilePos.y - bodyPos.y;
+                        const dz = projectilePos.z - bodyPos.z;
+                        const distanceToBody = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        
+                        // Use a generous collision radius (1.0 is the diameter of the body hitbox)
+                        if (distanceToBody < 1.0) {
+                            console.log(`Enemy ${enemyId} body shot with distance check! Distance: ${distanceToBody.toFixed(2)}`);
+                            const damage = 25; // Normal damage for body shots
+                            
+                            if (window.handleEnemyHit) {
+                                const hitDirection = projectile.direction.clone();
+                                window.handleEnemyHit(enemyId, damage, hitDirection);
+                            }
+                            
+                            createHitEffect(bodyPos);
+                            cleanupProjectile(projectile);
+                            projectiles.splice(i, 1);
+                            hitEnemy = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -1685,27 +1851,23 @@ function handleEnemyDeath(enemyId) {
     const enemy = enemies[enemyId];
     if (!enemy) return;
     
-    console.log(`Enemy ${enemyId} has died!`);
-    
-    // Create death effect
-    createDeathEffect(enemy.mesh.position.clone());
+    console.log(`Enemy ${enemyId} death handling in player_main.js`);
     
     // Show a final damage indicator with "KILLED" text if the function exists
-    if (window.createDamageIndicator) {
-        // Use a custom function to create a "KILLED" indicator
+    if (window.createKilledIndicator) {
         createKilledIndicator(enemy.mesh.position.clone());
     }
-    
-    // Remove enemy from scene
-    disposeEnemy(enemyId);
     
     // Remove from our tracking
     delete enemies[enemyId];
     
-    // Spawn a new enemy after delay
+    // Spawn a new enemy after a random delay between 5 and 10 seconds
+    const respawnDelay = 5000 + Math.random() * 5000; // Random time between 5000ms and 10000ms
+    console.log(`Enemy will respawn in ${(respawnDelay/1000).toFixed(1)} seconds`);
+    
     setTimeout(() => {
         spawnEnemy();
-    }, 5000);
+    }, respawnDelay);
 }
 
 // Create a "KILLED" indicator
@@ -1718,13 +1880,13 @@ function createKilledIndicator(position) {
     dynamicTexture.hasAlpha = true;
     
     // Set font and draw text
-    const fontSize = 80;
+    const fontSize = 60;
     const font = `bold ${fontSize}px Arial`;
     dynamicTexture.drawText("KILLED", null, null, font, "#ff0000", "transparent", true);
     
     // Create a plane to display the texture
     const plane = BABYLON.MeshBuilder.CreatePlane("killedIndicator", { width: 2, height: 0.7 }, scene);
-    plane.position = new BABYLON.Vector3(position.x, position.y + 2.5, position.z); // Position above enemy
+    plane.position = new BABYLON.Vector3(position.x, position.y + 2, position.z); // Position above enemy
     
     // Create material with the dynamic texture
     const material = new BABYLON.StandardMaterial("killedMaterial", scene);
@@ -1743,9 +1905,9 @@ function createKilledIndicator(position) {
     plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
     
     // Animate the indicator
-    const startY = position.y + 2.5;
-    const endY = position.y + 5;
-    const duration = 2000; // ms
+    const startY = position.y + 2;
+    const endY = position.y + 4;
+    const duration = 1500; // ms
     const startTime = Date.now();
     
     // Animation function
@@ -1759,12 +1921,7 @@ function createKilledIndicator(position) {
             plane.position.y = startY + (endY - startY) * progress;
             
             // Fade out as it rises
-            material.alpha = 1 - (progress * 0.7); // Keep it visible longer
-            
-            // Scale up slightly
-            const scale = 1 + (progress * 0.5);
-            plane.scaling.x = scale;
-            plane.scaling.y = scale;
+            material.alpha = 1 - progress;
             
             // Continue animation
             requestAnimationFrame(animateIndicator);
@@ -1779,6 +1936,9 @@ function createKilledIndicator(position) {
     // Start animation
     animateIndicator();
 }
+
+// Make createKilledIndicator globally accessible
+window.createKilledIndicator = createKilledIndicator;
 
 // Create death effect
 function createDeathEffect(position) {
@@ -2296,4 +2456,7 @@ function checkHitboxCollision(projectilePosition, hitbox) {
     }
     
     return isHit;
-} 
+}
+
+// Make handleEnemyDeath globally accessible
+window.handleEnemyDeath = handleEnemyDeath;

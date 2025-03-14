@@ -9,6 +9,9 @@ var camera;
 var dirLight;
 var hemisphericLight;
 
+// Make scene globally accessible
+window.scene = scene;
+
 // Player & Navigation
 var playerMesh;
 var playerHeight = 1.8; // Player height in units
@@ -46,6 +49,9 @@ var canShoot = true;
 var shootCooldown = 500; // ms
 var projectiles = [];
 var lastShootTime = 0;
+
+// Make projectiles array globally accessible
+window.projectiles = projectiles;
 
 // Player stats
 var playerHealth = 100;
@@ -287,6 +293,9 @@ function createScene(engine, canvas) {
     scene = new BABYLON.Scene(engine);
     console.log("Scene created");
     
+    // Make scene globally accessible
+    window.scene = scene;
+    
     // Create and position a free camera
     camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, playerHeight, 0), scene);
     camera.setTarget(BABYLON.Vector3.Zero());
@@ -481,6 +490,11 @@ function createPlayerMesh() {
         console.log("Camera positioned at:", camera.position);
     } else {
         console.error("Camera is not defined in createPlayerMesh");
+    }
+    
+    // Set player mesh reference in enemy controller if the function exists
+    if (window.setPlayerMeshReference) {
+        window.setPlayerMeshReference(playerMesh);
     }
 }
 
@@ -918,27 +932,82 @@ function updateProjectiles() {
         if (!projectile.isEnemyProjectile) {
             let hitEnemy = false;
             
-            // Check each enemy
-            for (const enemyId in enemies) {
-                const enemy = enemies[enemyId];
+            // Debug: Log projectile position
+            console.log(`Projectile position: x=${projectile.mesh.position.x.toFixed(2)}, y=${projectile.mesh.position.y.toFixed(2)}, z=${projectile.mesh.position.z.toFixed(2)}`);
+            
+            // Check if loadedEnemies exists
+            if (!window.loadedEnemies) {
+                console.error("window.loadedEnemies is not defined!");
+            } else {
+                console.log(`Number of enemies to check: ${Object.keys(window.loadedEnemies).length}`);
+            }
+            
+            // Check each enemy in loadedEnemies (from enemy controller)
+            for (const enemyId in window.loadedEnemies) {
+                const enemyController = window.loadedEnemies[enemyId];
                 
-                // Skip if enemy is dead
-                if (!enemy || enemy.health <= 0) continue;
+                // Skip if enemy doesn't exist
+                if (!enemyController) {
+                    console.warn(`Enemy ${enemyId} controller not found`);
+                    continue;
+                }
                 
-                // Calculate distance to enemy
-                const distance = BABYLON.Vector3.Distance(
-                    projectile.mesh.position,
-                    enemy.mesh.position
-                );
+                // Get enemy position
+                const enemyPosition = enemyController.transform.position;
                 
-                // If hit enemy
-                if (distance < 1.5) { // Adjust hit radius as needed
-                    // Create hit effect
-                    createHitEffect(enemy.mesh.position.clone());
+                // Debug: Log enemy position
+                console.log(`Enemy ${enemyId} position: x=${enemyPosition.x.toFixed(2)}, y=${enemyPosition.y.toFixed(2)}, z=${enemyPosition.z.toFixed(2)}`);
+                
+                // Calculate distance to enemy (ignoring Y axis for a wider hit area)
+                const dx = projectile.mesh.position.x - enemyPosition.x;
+                const dz = projectile.mesh.position.z - enemyPosition.z;
+                const distanceToEnemy = Math.sqrt(dx * dx + dz * dz);
+                
+                // Check if projectile is close enough to enemy (using a generous radius)
+                const hitRadius = 2.0; // Increased hit radius for easier hits
+                console.log(`Distance to enemy ${enemyId}: ${distanceToEnemy.toFixed(2)}, hit radius: ${hitRadius}`);
+                
+                if (distanceToEnemy < hitRadius) {
+                    console.log(`Projectile hit enemy ${enemyId} with distance ${distanceToEnemy.toFixed(2)}!`);
+                    
+                    // Create hit effect at the intersection point
+                    createHitEffect(projectile.mesh.position.clone());
+                    
+                    // Calculate damage
+                    const damage = 25; // Base damage
+                    
+                    // Get enemy from local tracking if it exists
+                    let enemy = enemies[enemyId];
+                    if (!enemy) {
+                        // Create entry if it doesn't exist
+                        enemy = enemies[enemyId] = {
+                            id: enemyId,
+                            health: 100,
+                            lastHitTime: 0,
+                            hitCooldown: 1000
+                        };
+                    }
                     
                     // Damage enemy
-                    enemy.health -= 25; // Adjust damage as needed
+                    enemy.health -= damage;
                     enemy.lastHitTime = currentTime;
+                    
+                    console.log(`Hit enemy ${enemyId}! Health: ${enemy.health}`);
+                    
+                    // Calculate hit direction (from projectile to enemy)
+                    const hitDirection = new BABYLON.Vector3(
+                        enemyPosition.x - projectile.mesh.position.x,
+                        0, // Ignore Y component
+                        enemyPosition.z - projectile.mesh.position.z
+                    ).normalize(); // Direction from projectile to enemy
+                    
+                    // Call hit reaction if the function exists
+                    if (window.handleEnemyHit) {
+                        console.log(`Calling handleEnemyHit for enemy ${enemyId} with damage ${damage}`);
+                        window.handleEnemyHit(enemyId, damage, hitDirection);
+                    } else {
+                        console.error("window.handleEnemyHit is not defined!");
+                    }
                     
                     // Check if enemy is dead
                     if (enemy.health <= 0) {
@@ -987,7 +1056,7 @@ function updateProjectiles() {
         }
         
         // Remove projectile if it's been alive too long
-        if (currentTime - projectile.createdTime > 5000) { // 5 seconds max lifetime
+        if (currentTime - projectile.createdTime > projectile.lifespan) {
             cleanupProjectile(projectile);
             projectiles.splice(i, 1);
         }
@@ -1110,6 +1179,8 @@ function createHitEffect(position) {
 
 // Update enemies
 function updateEnemies() {
+    const currentTime = Date.now();
+    
     // Update each enemy
     for (const enemyId in enemies) {
         const enemy = enemies[enemyId];
@@ -1119,6 +1190,32 @@ function updateEnemies() {
         
         // Check for ammo pickups
         checkAmmoPickups(enemy);
+        
+        // Check for direct collision with player (melee attack)
+        if (playerMesh) {
+            const distanceToPlayer = BABYLON.Vector3.Distance(
+                enemy.mesh.position,
+                playerMesh.position
+            );
+            
+            // If enemy is very close to player, do melee damage
+            if (distanceToPlayer < 2.5 && currentTime - lastHitTime > hitCooldown) {
+                console.log("Enemy melee attack!");
+                playerHealth -= 10; // Melee damage
+                lastHitTime = currentTime;
+                
+                // Update HUD
+                updateHUD();
+                
+                // Create hit effect
+                createHitEffect(playerMesh.position.clone());
+                
+                // Check if player is dead
+                if (playerHealth <= 0) {
+                    handlePlayerDeath();
+                }
+            }
+        }
     }
 }
 
@@ -1150,8 +1247,16 @@ function handleEnemyDeath(enemyId) {
     const enemy = enemies[enemyId];
     if (!enemy) return;
     
+    console.log(`Enemy ${enemyId} has died!`);
+    
     // Create death effect
     createDeathEffect(enemy.mesh.position.clone());
+    
+    // Show a final damage indicator with "KILLED" text if the function exists
+    if (window.createDamageIndicator) {
+        // Use a custom function to create a "KILLED" indicator
+        createKilledIndicator(enemy.mesh.position.clone());
+    }
     
     // Remove enemy from scene
     disposeEnemy(enemyId);
@@ -1163,6 +1268,78 @@ function handleEnemyDeath(enemyId) {
     setTimeout(() => {
         spawnEnemy();
     }, 5000);
+}
+
+// Create a "KILLED" indicator
+function createKilledIndicator(position) {
+    if (!scene) return;
+    
+    // Create a dynamic texture for the text
+    const textSize = 256;
+    const dynamicTexture = new BABYLON.DynamicTexture("killedTexture", textSize, scene, true);
+    dynamicTexture.hasAlpha = true;
+    
+    // Set font and draw text
+    const fontSize = 80;
+    const font = `bold ${fontSize}px Arial`;
+    dynamicTexture.drawText("KILLED", null, null, font, "#ff0000", "transparent", true);
+    
+    // Create a plane to display the texture
+    const plane = BABYLON.MeshBuilder.CreatePlane("killedIndicator", { width: 2, height: 0.7 }, scene);
+    plane.position = new BABYLON.Vector3(position.x, position.y + 2.5, position.z); // Position above enemy
+    
+    // Create material with the dynamic texture
+    const material = new BABYLON.StandardMaterial("killedMaterial", scene);
+    material.diffuseTexture = dynamicTexture;
+    material.specularColor = new BABYLON.Color3(0, 0, 0);
+    material.emissiveColor = new BABYLON.Color3(1, 0, 0);
+    material.backFaceCulling = false;
+    
+    // Make it transparent
+    material.useAlphaFromDiffuseTexture = true;
+    
+    // Apply material to plane
+    plane.material = material;
+    
+    // Make the plane always face the camera (billboarding)
+    plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+    
+    // Animate the indicator
+    const startY = position.y + 2.5;
+    const endY = position.y + 5;
+    const duration = 2000; // ms
+    const startTime = Date.now();
+    
+    // Animation function
+    const animateIndicator = () => {
+        const currentTime = Date.now();
+        const elapsed = currentTime - startTime;
+        
+        if (elapsed < duration) {
+            // Calculate position based on elapsed time
+            const progress = elapsed / duration;
+            plane.position.y = startY + (endY - startY) * progress;
+            
+            // Fade out as it rises
+            material.alpha = 1 - (progress * 0.7); // Keep it visible longer
+            
+            // Scale up slightly
+            const scale = 1 + (progress * 0.5);
+            plane.scaling.x = scale;
+            plane.scaling.y = scale;
+            
+            // Continue animation
+            requestAnimationFrame(animateIndicator);
+        } else {
+            // Animation complete, dispose resources
+            plane.dispose();
+            material.dispose();
+            dynamicTexture.dispose();
+        }
+    };
+    
+    // Start animation
+    animateIndicator();
 }
 
 // Create death effect
@@ -1531,6 +1708,7 @@ function spawnEnemy() {
             id: enemyId,
             mesh: enemyData.mesh,
             skeleton: enemyData.skeleton,
+            collisionBox: enemyData.collisionBox, // Store collision box reference
             health: 100,
             lastHitTime: 0,
             hitCooldown: 1000

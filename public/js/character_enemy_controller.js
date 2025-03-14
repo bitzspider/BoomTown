@@ -9,6 +9,21 @@ var loadedEnemies = {}; // Store loaded enemy instances
 var pathVisualization = {}; // Store path visualization meshes by enemy ID
 var existingPaths = []; // Store all active patrol paths to avoid overlap
 
+// Make loadedEnemies globally accessible
+window.loadedEnemies = loadedEnemies;
+
+// Reference to player mesh (will be set by player_main.js)
+var playerMesh = null;
+
+// Function to set player mesh reference
+function setPlayerMeshReference(mesh) {
+    playerMesh = mesh;
+    console.log("Player mesh reference set in enemy controller");
+}
+
+// Make the function globally accessible
+window.setPlayerMeshReference = setPlayerMeshReference;
+
 // Add Yuka-specific variables after the global variables
 var entityManager = new YUKA.EntityManager();
 var time = new YUKA.Time();
@@ -130,6 +145,22 @@ async function loadEnemyModel(scene, position, param1 = null, param2 = null, cal
         // Position enemy at spawn point
         enemyTransform.position = position;
         
+        // Create a collision box for the enemy
+        const collisionBox = BABYLON.MeshBuilder.CreateBox(`enemy_${enemyId}_collision`, {
+            width: 1.5,
+            height: 2.0,
+            depth: 1.5
+        }, scene);
+        
+        // Make the collision box invisible
+        collisionBox.isVisible = false;
+        
+        // Make the collision box a child of the transform node
+        collisionBox.parent = enemyTransform;
+        
+        // Position the collision box to match the character's center
+        collisionBox.position.y = 1.0; // Adjust based on character height
+        
         // Create Yuka Vehicle
         const vehicle = new YUKA.Vehicle();
         vehicle.position.set(position.x, 0, position.z);
@@ -166,7 +197,8 @@ async function loadEnemyModel(scene, position, param1 = null, param2 = null, cal
             currentPathIndex: 0,
             moveSpeed: 2.0,
             rotationSpeed: 0.1,
-            vehicle: vehicle
+            vehicle: vehicle,
+            collisionBox: collisionBox // Store reference to collision box
         };
         
         // Add vehicle to entity manager
@@ -194,7 +226,8 @@ async function loadEnemyModel(scene, position, param1 = null, param2 = null, cal
             const enemyData = {
                 id: enemyId,
                 mesh: enemyRoot,
-                skeleton: result.skeletons[0]
+                skeleton: result.skeletons[0],
+                collisionBox: collisionBox // Include collision box in callback data
             };
             callback(enemyData);
         }
@@ -214,15 +247,204 @@ function updateEnemyState(enemyId) {
     const currentTime = Date.now();
     const timeInState = currentTime - enemy.stateStartTime;
     
+    // Check if player is within chase range
+    const isPlayerInRange = checkPlayerInRange(enemyId, 12); // 12 blocks detection range
+    
     switch (enemy.state) {
         case "IDLE":
-            if (timeInState >= enemy.idleDuration) {
+            if (isPlayerInRange) {
+                setEnemyState(enemyId, "CHASE");
+            } else if (timeInState >= enemy.idleDuration) {
                 setEnemyState(enemyId, "PATROL");
             }
             break;
         case "PATROL":
-            updateEnemyPatrol(enemyId);
+            if (isPlayerInRange) {
+                setEnemyState(enemyId, "CHASE");
+            } else {
+                updateEnemyPatrol(enemyId);
+            }
             break;
+        case "CHASE":
+            if (!isPlayerInRange) {
+                setEnemyState(enemyId, "PATROL");
+            } else {
+                updateEnemyChase(enemyId);
+                
+                // Occasionally shoot at player when in chase mode
+                if (Math.random() < 0.01) { // 1% chance per frame to shoot
+                    enemyShootAtPlayer(enemyId);
+                }
+            }
+            break;
+    }
+}
+
+// Check if player is within range of the enemy
+function checkPlayerInRange(enemyId, range) {
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy || !playerMesh) return false;
+    
+    const dx = enemy.transform.position.x - playerMesh.position.x;
+    const dz = enemy.transform.position.z - playerMesh.position.z;
+    const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
+    
+    return distanceToPlayer <= range;
+}
+
+// Update enemy chase behavior - make enemy move towards player
+function updateEnemyChase(enemyId) {
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy || !playerMesh) return;
+    
+    // Calculate direction to player
+    const dx = playerMesh.position.x - enemy.transform.position.x;
+    const dz = playerMesh.position.z - enemy.transform.position.z;
+    const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
+    
+    // Normalize direction
+    const direction = new YUKA.Vector3(dx, 0, dz).normalize();
+    
+    // Update vehicle velocity towards player
+    enemy.vehicle.velocity.copy(direction).multiplyScalar(enemy.vehicle.maxSpeed);
+    
+    // Update vehicle position with smooth movement
+    const deltaTime = engine.getDeltaTime() / 1000;
+    const moveStep = enemy.vehicle.maxSpeed * deltaTime;
+    
+    // Update vehicle position
+    const previousPosition = {
+        x: enemy.vehicle.position.x,
+        z: enemy.vehicle.position.z
+    };
+    
+    enemy.vehicle.position.x += direction.x * moveStep;
+    enemy.vehicle.position.z += direction.z * moveStep;
+    
+    // Sync with Babylon mesh
+    enemy.transform.position.x = enemy.vehicle.position.x;
+    enemy.transform.position.z = enemy.vehicle.position.z;
+    
+    // Update rotation based on movement direction
+    if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+        // Add PI to the angle to rotate the model 180 degrees
+        const targetAngle = Math.atan2(direction.x, direction.z) + Math.PI;
+        const currentAngle = enemy.root.rotation.y;
+        
+        // Smooth rotation
+        let angleDiff = targetAngle - currentAngle;
+        // Normalize angle difference to [-PI, PI]
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        
+        // Apply smooth rotation
+        enemy.root.rotation.y += angleDiff * enemy.rotationSpeed;
+    }
+    
+    // Check for collisions
+    if (checkEnemyCollisions(enemy)) {
+        // Restore previous position
+        enemy.vehicle.position.x = previousPosition.x;
+        enemy.vehicle.position.z = previousPosition.z;
+        enemy.transform.position.x = previousPosition.x;
+        enemy.transform.position.z = previousPosition.z;
+    }
+    
+    // Ensure chase animation is playing
+    if (enemy.state !== "CHASE") {
+        setEnemyState(enemyId, "CHASE");
+    }
+}
+
+// Enemy shoots at player
+function enemyShootAtPlayer(enemyId) {
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy || !playerMesh) return;
+    
+    console.log(`Enemy ${enemyId} shooting at player`);
+    
+    // Calculate direction to player
+    const dx = playerMesh.position.x - enemy.transform.position.x;
+    const dy = playerMesh.position.y - enemy.transform.position.y;
+    const dz = playerMesh.position.z - enemy.transform.position.z;
+    
+    // Create projectile
+    const projectileId = "enemyProjectile_" + Date.now();
+    const projectile = BABYLON.MeshBuilder.CreateSphere(projectileId, { diameter: 0.2 }, scene);
+    
+    // Position projectile at enemy position + offset
+    projectile.position = new BABYLON.Vector3(
+        enemy.transform.position.x,
+        enemy.transform.position.y + 1.5, // Adjust height to match enemy's "gun" position
+        enemy.transform.position.z
+    );
+    
+    // Apply material to projectile
+    const projectileMaterial = new BABYLON.StandardMaterial("projectileMaterial_" + projectileId, scene);
+    projectileMaterial.emissiveColor = new BABYLON.Color3(1, 0, 0); // Red for enemy projectiles
+    projectileMaterial.disableLighting = true;
+    projectile.material = projectileMaterial;
+    
+    // Calculate direction vector
+    const direction = new BABYLON.Vector3(dx, dy, dz).normalize();
+    
+    // Create particle system for trail
+    const particleSystem = new BABYLON.ParticleSystem("particles_" + projectileId, 100, scene);
+    
+    // Check if we have the flare texture
+    let particleTexturePath = "/assets/textures/flare_new.png";
+    
+    particleSystem.particleTexture = new BABYLON.Texture(particleTexturePath, scene);
+    particleSystem.emitter = projectile;
+    particleSystem.minEmitBox = new BABYLON.Vector3(-0.05, -0.05, -0.05);
+    particleSystem.maxEmitBox = new BABYLON.Vector3(0.05, 0.05, 0.05);
+    
+    // Particle colors (red for enemy)
+    particleSystem.color1 = new BABYLON.Color4(1, 0.2, 0.2, 1.0);
+    particleSystem.color2 = new BABYLON.Color4(1, 0, 0, 1.0);
+    particleSystem.colorDead = new BABYLON.Color4(0.7, 0, 0, 0.0);
+    
+    // Particle sizes and lifetime
+    particleSystem.minSize = 0.1;
+    particleSystem.maxSize = 0.3;
+    particleSystem.minLifeTime = 0.1;
+    particleSystem.maxLifeTime = 0.3;
+    
+    // Emission rate and power
+    particleSystem.emitRate = 100;
+    particleSystem.direction1 = new BABYLON.Vector3(-0.5, -0.5, -0.5);
+    particleSystem.direction2 = new BABYLON.Vector3(0.5, 0.5, 0.5);
+    particleSystem.minEmitPower = 0.1;
+    particleSystem.maxEmitPower = 0.3;
+    particleSystem.updateSpeed = 0.01;
+    
+    // Set proper blending mode for transparent textures
+    particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+    
+    // Add billboarding to ensure particles always face the camera
+    particleSystem.billboardMode = BABYLON.ParticleSystem.BILLBOARDMODE_ALL;
+    
+    // Start the particle system
+    particleSystem.start();
+    
+    // Store projectile data in the global projectiles array
+    const projectileData = {
+        id: projectileId,
+        mesh: projectile,
+        particleSystem: particleSystem,
+        direction: direction,
+        speed: 0.8, // Slightly slower than player projectiles
+        createdTime: Date.now(),
+        lifespan: 3000, // 3 seconds in ms
+        isEnemyProjectile: true, // Flag to identify enemy projectiles
+        gravity: 0 // No gravity for enemy projectiles to make them more accurate
+    };
+    
+    // Add to global projectiles array
+    if (window.projectiles) {
+        window.projectiles.push(projectileData);
+    } else {
+        console.error("Global projectiles array not found");
     }
 }
 
@@ -391,6 +613,35 @@ function playEnemyAnimation(enemyId, animationName) {
         return;
     }
     
+    // Special case for hit reaction - try to play a hit animation if available
+    if (animationName.toLowerCase() === "idle" && loadedEnemies[enemyId]?.state === "HIT_REACT") {
+        // Try to find a hit reaction animation
+        const hitAnimationVariants = [
+            "Hit", "HitReact", "TakeHit", "Damage", "Hurt",
+            "CharacterArmature|Hit", "CharacterArmature|HitReact", 
+            "CharacterArmature|TakeHit", "CharacterArmature|Damage", 
+            "CharacterArmature|Hurt"
+        ];
+        
+        // Check if any hit animation exists
+        for (const variant of hitAnimationVariants) {
+            if (availableAnimations[variant]) {
+                console.log(`Found hit reaction animation: "${variant}"`);
+                animationName = variant;
+                break;
+            }
+            
+            // Try partial match
+            const matchingKey = Object.keys(availableAnimations).find(key => 
+                key.toLowerCase().includes(variant.toLowerCase()));
+            if (matchingKey) {
+                console.log(`Found partial hit reaction animation match: "${matchingKey}"`);
+                animationName = matchingKey;
+                break;
+            }
+        }
+    }
+    
     let animation = null;
     const animationVariants = [
         animationName, // Exact match
@@ -534,6 +785,11 @@ function disposeEnemy(enemyId) {
         scene.onBeforeRenderObservable.clear();
     }
     
+    // Dispose collision box
+    if (enemy.collisionBox) {
+        enemy.collisionBox.dispose();
+    }
+    
     // Dispose meshes
     if (enemy.root) {
         enemy.root.dispose();
@@ -625,6 +881,208 @@ function syncEnemyWithYuka(enemyId) {
         const angle = Math.atan2(enemy.vehicle.velocity.x, enemy.vehicle.velocity.z) + Math.PI;
         enemy.root.rotation.y = angle;
     }
+    
+    // The collision box will automatically follow since it's parented to the transform
+}
+
+// Function to handle enemy hit reaction
+function handleEnemyHit(enemyId, damage, hitDirection) {
+    console.log(`handleEnemyHit called for enemy ${enemyId} with damage ${damage}`);
+    
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy) {
+        console.error(`Enemy ${enemyId} not found in loadedEnemies!`);
+        return;
+    }
+    
+    console.log(`Enemy ${enemyId} hit for ${damage} damage at position: x=${enemy.transform.position.x.toFixed(2)}, y=${enemy.transform.position.y.toFixed(2)}, z=${enemy.transform.position.z.toFixed(2)}`);
+    
+    // Set enemy to hit react state
+    setEnemyState(enemyId, "HIT_REACT");
+    
+    // Push enemy back in the direction of the hit
+    if (hitDirection) {
+        console.log(`Hit direction: x=${hitDirection.x.toFixed(2)}, y=${hitDirection.y.toFixed(2)}, z=${hitDirection.z.toFixed(2)}`);
+        
+        // Normalize direction and scale for push back distance
+        const pushDistance = 0.5; // Push back distance in units
+        const normalizedDirection = hitDirection.normalize();
+        
+        // Store previous position in case of collision
+        const previousPosition = {
+            x: enemy.transform.position.x,
+            z: enemy.transform.position.z
+        };
+        
+        // Apply push back
+        enemy.transform.position.x += normalizedDirection.x * pushDistance;
+        enemy.transform.position.z += normalizedDirection.z * pushDistance;
+        
+        // Update vehicle position to match
+        enemy.vehicle.position.x = enemy.transform.position.x;
+        enemy.vehicle.position.z = enemy.transform.position.z;
+        
+        // Check for collisions and restore position if needed
+        if (checkEnemyCollisions(enemy)) {
+            enemy.transform.position.x = previousPosition.x;
+            enemy.transform.position.z = previousPosition.z;
+            enemy.vehicle.position.x = previousPosition.x;
+            enemy.vehicle.position.z = previousPosition.z;
+        }
+        
+        console.log(`Enemy pushed to position: x=${enemy.transform.position.x.toFixed(2)}, y=${enemy.transform.position.y.toFixed(2)}, z=${enemy.transform.position.z.toFixed(2)}`);
+    }
+    
+    // Create damage indicator
+    console.log("Creating damage indicator...");
+    createDamageIndicator(enemy.transform.position, damage);
+    
+    // Return to previous state after hit reaction duration
+    setTimeout(() => {
+        // Only change state if still in HIT_REACT (might have died or changed state otherwise)
+        if (enemy && enemy.state === "HIT_REACT") {
+            // Return to patrol or chase state based on player proximity
+            const isPlayerInRange = checkPlayerInRange(enemyId, 12);
+            setEnemyState(enemyId, isPlayerInRange ? "CHASE" : "PATROL");
+            console.log(`Enemy ${enemyId} returned to ${isPlayerInRange ? "CHASE" : "PATROL"} state after hit reaction`);
+        }
+    }, 500); // Duration of hit reaction
+}
+
+// Function to create floating damage indicator
+function createDamageIndicator(position, damage) {
+    // Make sure we have access to the scene
+    if (!scene && window.scene) {
+        scene = window.scene;
+    }
+    
+    if (!scene) {
+        console.error("Scene is not defined in createDamageIndicator");
+        return;
+    }
+    
+    console.log(`Creating damage indicator at position ${position.x}, ${position.y}, ${position.z} with damage ${damage}`);
+    
+    try {
+        // Create a dynamic texture for the damage text
+        const textSize = 512; // Larger texture for better quality
+        const dynamicTexture = new BABYLON.DynamicTexture("damageTexture_" + Date.now(), textSize, scene, true);
+        dynamicTexture.hasAlpha = true;
+        
+        // Set font and draw text
+        const fontSize = 200; // Larger font size
+        const font = `bold ${fontSize}px Arial`;
+        
+        // Clear the texture first
+        const ctx = dynamicTexture.getContext();
+        ctx.clearRect(0, 0, textSize, textSize);
+        
+        // Draw text with outline for better visibility
+        dynamicTexture.drawText(damage.toString(), null, null, font, "#ff0000", "transparent", true, true);
+        
+        // Create a larger plane to display the texture
+        const plane = BABYLON.MeshBuilder.CreatePlane("damageIndicator_" + Date.now(), { 
+            width: 2.0,  // Larger width
+            height: 1.0  // Larger height
+        }, scene);
+        
+        // Position it higher above the enemy
+        plane.position = new BABYLON.Vector3(position.x, position.y + 3.0, position.z);
+        
+        // Create material with the dynamic texture
+        const material = new BABYLON.StandardMaterial("damageMaterial_" + Date.now(), scene);
+        material.diffuseTexture = dynamicTexture;
+        material.specularColor = new BABYLON.Color3(0, 0, 0);
+        material.emissiveColor = new BABYLON.Color3(1, 0, 0); // Bright red
+        material.backFaceCulling = false;
+        
+        // Make it transparent
+        material.useAlphaFromDiffuseTexture = true;
+        
+        // Apply material to plane
+        plane.material = material;
+        
+        // Make the plane always face the camera (billboarding)
+        plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+        
+        // Make sure it's rendered on top of other objects
+        plane.renderingGroupId = 1;
+        
+        // Animate the damage indicator
+        const startY = position.y + 3.0;
+        const endY = position.y + 5.0; // Higher end position
+        const duration = 2000; // Longer duration (2 seconds)
+        const startTime = Date.now();
+        
+        // Animation function
+        const animateIndicator = () => {
+            const currentTime = Date.now();
+            const elapsed = currentTime - startTime;
+            
+            if (elapsed < duration) {
+                // Calculate position based on elapsed time
+                const progress = elapsed / duration;
+                plane.position.y = startY + (endY - startY) * progress;
+                
+                // Fade out as it rises
+                material.alpha = 1 - progress;
+                
+                // Scale up slightly as it rises
+                const scale = 1 + progress * 0.5;
+                plane.scaling.x = scale;
+                plane.scaling.y = scale;
+                
+                // Continue animation
+                requestAnimationFrame(animateIndicator);
+            } else {
+                // Animation complete, dispose resources
+                plane.dispose();
+                material.dispose();
+                dynamicTexture.dispose();
+            }
+        };
+        
+        // Start animation
+        animateIndicator();
+        
+        // Also create a simple particle effect for additional visibility
+        const particleSystem = new BABYLON.ParticleSystem("damageParticles_" + Date.now(), 20, scene);
+        particleSystem.particleTexture = new BABYLON.Texture("/assets/textures/flare_new.png", scene);
+        particleSystem.emitter = new BABYLON.Vector3(position.x, position.y + 2.0, position.z);
+        particleSystem.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2);
+        particleSystem.maxEmitBox = new BABYLON.Vector3(0.2, 0.4, 0.2);
+        particleSystem.color1 = new BABYLON.Color4(1, 0, 0, 1);
+        particleSystem.color2 = new BABYLON.Color4(1, 0.5, 0, 1);
+        particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0);
+        particleSystem.minSize = 0.3;
+        particleSystem.maxSize = 0.5;
+        particleSystem.minLifeTime = 0.5;
+        particleSystem.maxLifeTime = 1.5;
+        particleSystem.emitRate = 20;
+        particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+        particleSystem.gravity = new BABYLON.Vector3(0, 1, 0);
+        particleSystem.direction1 = new BABYLON.Vector3(-1, 2, -1);
+        particleSystem.direction2 = new BABYLON.Vector3(1, 2, 1);
+        particleSystem.minAngularSpeed = 0;
+        particleSystem.maxAngularSpeed = Math.PI;
+        particleSystem.minEmitPower = 0.5;
+        particleSystem.maxEmitPower = 1.5;
+        particleSystem.updateSpeed = 0.01;
+        
+        // Start the particle system
+        particleSystem.start();
+        
+        // Stop and dispose after animation duration
+        setTimeout(() => {
+            particleSystem.stop();
+            setTimeout(() => {
+                particleSystem.dispose();
+            }, 1000); // Wait for particles to finish
+        }, duration);
+        
+    } catch (error) {
+        console.error("Error creating damage indicator:", error);
+    }
 }
 
 // Export functions
@@ -634,4 +1092,6 @@ window.setEnemyState = setEnemyState;
 window.getEnemyPosition = getEnemyPosition;
 window.setEnemyPosition = setEnemyPosition;
 window.setEnemyRotation = setEnemyRotation;
-window.disposeEnemy = disposeEnemy; 
+window.disposeEnemy = disposeEnemy;
+window.handleEnemyHit = handleEnemyHit;
+window.createDamageIndicator = createDamageIndicator; 

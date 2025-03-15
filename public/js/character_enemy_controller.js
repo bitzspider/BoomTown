@@ -95,7 +95,7 @@ function getUniquePatrolPath(position, maxAttempts = GameConfig.patrolPaths.maxA
         }
         
         // Add the start point again to close the loop
-        path.push({ ...path[0] });
+            path.push({ ...path[0] });
         
         attempts++;
     } while (doesPathOverlap(path, GameConfig.patrolPaths.minDistance) && attempts < maxAttempts);
@@ -154,7 +154,7 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         
         // Position enemy at spawn point
         enemyTransform.position = position;
-
+        
         // Create head hitbox with enemy ID
         const headHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_head_${enemyId}`, {
             width: GameConfig.enemies.headHitbox.width,
@@ -356,7 +356,7 @@ function updateEnemyState(enemyId) {
             if (shouldChasePlayer) {
                 setEnemyState(enemyId, "CHASE");
             } else {
-                updateEnemyPatrol(enemyId);
+            updateEnemyPatrol(enemyId);
             }
             break;
         case "CHASE":
@@ -1109,7 +1109,7 @@ function createPathVisualization(enemyId, path) {
     // Check global settings
     const showLines = GameConfig.debug.showPathLines;
     const showPoints = GameConfig.debug.showWaypoints;
-    
+
     // Create points array for the path
     const points = path.map(waypoint => new BABYLON.Vector3(waypoint.x, 1, waypoint.z));
     
@@ -1187,11 +1187,11 @@ function updateWaypointVisualization(enemyId) {
 function syncEnemyWithYuka(enemyId) {
     const enemy = loadedEnemies[enemyId];
     if (!enemy || !enemy.vehicle) return;
-
+    
     // Update position
     enemy.transform.position.x = enemy.vehicle.position.x;
     enemy.transform.position.z = enemy.vehicle.position.z;
-
+    
     // Update rotation based on velocity
     if (enemy.vehicle.velocity.length() > 0.01) {
         // Add PI to the angle to rotate the model 180 degrees

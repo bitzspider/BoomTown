@@ -225,66 +225,94 @@ class MapEngine {
         );
     }
 
-    async saveMap(mapName = 'Demo Map') {
-        if (!this.mapData) {
-            this.mapData = { objects: [] };
-        }
-
-        // Use the current state from mapData.objects directly
-        // This ensures we're using the most up-to-date positions that have been modified
-        const updatedObjects = this.mapData.objects.map(obj => ({
-            ...obj,  // Keep all existing properties
-            position: {
-                x: parseFloat(obj.position.x),
-                y: parseFloat(obj.position.y),
-                z: parseFloat(obj.position.z)
-            },
-            rotation: {
-                x: parseFloat(obj.rotation.x),
-                y: parseFloat(obj.rotation.y),
-                z: parseFloat(obj.rotation.z)
-            },
-            scale: {
-                x: parseFloat(obj.scale.x),
-                y: parseFloat(obj.scale.y),
-                z: parseFloat(obj.scale.z)
-            }
-        }));
-
-        // Update the map data
-        this.mapData.objects = updatedObjects;
-        
-        // Update metadata
-        if (!this.mapData.metadata) {
-            this.mapData.metadata = {};
-        }
-        this.mapData.metadata.name = mapName;
-        this.mapData.metadata.lastModified = new Date().toISOString();
-
+    async saveMap(mapName) {
         try {
-            console.log('Attempting to save map data:', JSON.stringify(this.mapData, null, 2));
+            // Update the map name but preserve the ID
+            const currentId = this.mapData?.id || this.generateUUID();
+            
+            // Prepare map data
+            const mapData = {
+                id: currentId,
+                name: mapName,
+                version: "1.0",
+                gridSize: 1,
+                showGrid: true,
+                objects: Array.from(this.instances.values()).map(instance => ({
+                    id: instance.id,
+                    model: instance.model,
+                    position: {
+                        x: instance.position.x,
+                        y: instance.position.y,
+                        z: instance.position.z
+                    },
+                    rotation: {
+                        x: BABYLON.Tools.ToDegrees(instance.rotation.x),
+                        y: BABYLON.Tools.ToDegrees(instance.rotation.y),
+                        z: BABYLON.Tools.ToDegrees(instance.rotation.z)
+                    },
+                    scale: {
+                        x: instance.scaling.x,
+                        y: instance.scaling.y,
+                        z: instance.scaling.z
+                    }
+                })),
+                camera: {
+                    position: {
+                        x: this.scene.activeCamera.position.x,
+                        y: this.scene.activeCamera.position.y,
+                        z: this.scene.activeCamera.position.z
+                    },
+                    target: {
+                        x: this.scene.activeCamera.target.x,
+                        y: this.scene.activeCamera.target.y,
+                        z: this.scene.activeCamera.target.z
+                    }
+                },
+                lighting: {
+                    ambient: {
+                        intensity: 1
+                    },
+                    directional: {
+                        intensity: 0.5,
+                        direction: {
+                            x: -1,
+                            y: -2,
+                            z: -1
+                        }
+                    }
+                }
+            };
+
+            // Store the current map data
+            this.mapData = mapData;
+
+            // Send to server
             const response = await fetch('/save-map', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(this.mapData)
+                body: JSON.stringify(mapData)
             });
 
-            const responseData = await response.json();
-            console.log('Save response:', responseData);
-
             if (!response.ok) {
-                throw new Error(responseData.details || 'Failed to save map');
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to save map');
             }
 
-            console.log('Map saved successfully:', responseData);
-            return responseData;
+            return await response.json();
         } catch (error) {
             console.error('Error saving map:', error);
-            console.error('Error details:', error.stack);
             throw error;
         }
+    }
+
+    generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
     }
 
     // Helper function to convert world coordinates to grid coordinates
@@ -301,5 +329,9 @@ class MapEngine {
             x: gridX * gridSize,
             z: gridZ * gridSize
         };
+    }
+
+    getMapData() {
+        return this.mapData;
     }
 } 

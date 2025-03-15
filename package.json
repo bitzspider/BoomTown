@@ -26,5 +26,9 @@
     "express": "^4.21.2",
     "parcel": "^2.11.0",
     "typescript": "^5.3.3"
-  }
+  },
+  "main": "server.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

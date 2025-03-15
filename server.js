@@ -35,21 +35,59 @@ app.post('/save-map', async (req, res) => {
         const mapData = req.body;
         console.log('Received map data to save:', JSON.stringify(mapData, null, 2));
         
-        if (!mapData || !mapData.objects) {
-            throw new Error('Invalid map data: missing objects array');
+        // Validate map data structure
+        if (!mapData || typeof mapData !== 'object') {
+            throw new Error('Invalid map data: must be an object');
+        }
+        if (!Array.isArray(mapData.objects)) {
+            throw new Error('Invalid map data: objects must be an array');
+        }
+        if (!mapData.name || typeof mapData.name !== 'string') {
+            throw new Error('Invalid map data: name must be a string');
         }
 
+        // Validate each object in the array
+        mapData.objects.forEach((obj, index) => {
+            if (!obj.id || !obj.model || !obj.position || !obj.rotation || !obj.scale) {
+                throw new Error(`Invalid object at index ${index}: missing required properties`);
+            }
+            ['x', 'y', 'z'].forEach(coord => {
+                if (typeof obj.position[coord] !== 'number') {
+                    throw new Error(`Invalid position.${coord} for object ${obj.id}`);
+                }
+                if (typeof obj.rotation[coord] !== 'number') {
+                    throw new Error(`Invalid rotation.${coord} for object ${obj.id}`);
+                }
+                if (typeof obj.scale[coord] !== 'number') {
+                    throw new Error(`Invalid scale.${coord} for object ${obj.id}`);
+                }
+            });
+        });
+
         const filePath = path.join(__dirname, 'public', 'Demos', 'map_data.json');
-        console.log('Saving to file:', filePath);
+        const backupPath = path.join(__dirname, 'public', 'Demos', 'map_data.backup.json');
+
+        // Create backup of existing file if it exists
+        if (await fs.access(filePath).then(() => true).catch(() => false)) {
+            await fs.copyFile(filePath, backupPath);
+        }
+
+        // Save the new data
+        await fs.writeFile(filePath, JSON.stringify(mapData, null, 2));
         
-        await fs.writeFile(
-            filePath,
-            JSON.stringify(mapData, null, 2)
-        );
-        
-        // Verify the file was written
+        // Verify the file was written correctly
         const savedData = await fs.readFile(filePath, 'utf8');
-        console.log('File written successfully. Content length:', savedData.length);
+        const parsedSavedData = JSON.parse(savedData);
+        
+        if (!parsedSavedData.objects || !Array.isArray(parsedSavedData.objects)) {
+            // Something went wrong, restore from backup
+            if (await fs.access(backupPath).then(() => true).catch(() => false)) {
+                await fs.copyFile(backupPath, filePath);
+                throw new Error('Save verification failed, restored from backup');
+            }
+        }
+        
+        console.log('Map saved successfully. Object count:', mapData.objects.length);
         
         res.json({ 
             success: true, 
@@ -62,6 +100,57 @@ app.post('/save-map', async (req, res) => {
             error: 'Failed to save map',
             details: error.message,
             stack: error.stack
+        });
+    }
+});
+
+// Rename map endpoint
+app.post('/rename-map', async (req, res) => {
+    try {
+        const { mapId, oldName, newName } = req.body;
+        
+        if (!mapId || !oldName || !newName) {
+            return res.status(400).json({ error: 'Missing required parameters: mapId, oldName, newName' });
+        }
+
+        const filePath = path.join(__dirname, 'public', 'Demos', 'map_data.json');
+        
+        // Read and parse the current map data
+        const mapData = JSON.parse(await fs.readFile(filePath, 'utf8'));
+        
+        // Verify this is the correct map by checking both ID and name
+        if (mapData.id !== mapId) {
+            return res.status(400).json({ error: 'Map ID mismatch' });
+        }
+        
+        if (mapData.name !== oldName) {
+            return res.status(400).json({ error: 'Current map name mismatch' });
+        }
+
+        // Create backup before making changes
+        const backupDir = path.join(__dirname, 'public', 'Demos', 'backups');
+        await fs.mkdir(backupDir, { recursive: true });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(backupDir, `map_data_${timestamp}.json`);
+        await fs.writeFile(backupPath, JSON.stringify(mapData, null, 2));
+
+        // Update the name
+        mapData.name = newName;
+        
+        // Write the updated data back to the file
+        await fs.writeFile(filePath, JSON.stringify(mapData, null, 2));
+        
+        console.log(`Map renamed successfully from "${oldName}" to "${newName}"`);
+        res.json({ 
+            success: true,
+            message: 'Map renamed successfully',
+            newName: newName
+        });
+    } catch (error) {
+        console.error('Error renaming map:', error);
+        res.status(500).json({ 
+            error: 'Failed to rename map',
+            details: error.message
         });
     }
 });

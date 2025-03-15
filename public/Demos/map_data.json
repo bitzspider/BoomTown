@@ -1,12 +1,17 @@
 {
+  "id": "208fh8273hfh82fh",
+  "name": "Default Map",
+  "version": "1.0",
+  "gridSize": 1,
+  "showGrid": true,
   "objects": [
     {
-      "id": "Shipping Container_80f8d0d5-e20f-4b87-a7e2-dd4faf2be00c",
+      "id": "container_military_1",
       "model": "Shipping Container.glb",
       "position": {
-        "x": -11.730528174069725,
+        "x": 5,
         "y": 0,
-        "z": 9.789215995048778
+        "z": 5
       },
       "rotation": {
         "x": 0,
@@ -20,16 +25,16 @@
       }
     },
     {
-      "id": "Structure_4f3197df-ad92-4ed3-b4cc-41464fd33320",
+      "id": "barrier_concrete_1",
       "model": "Structure.glb",
       "position": {
-        "x": -10.785215559203028,
+        "x": -5,
         "y": 0,
-        "z": 7.030426767896314
+        "z": -5
       },
       "rotation": {
         "x": 0,
-        "y": -180,
+        "y": 45,
         "z": 0
       },
       "scale": {
@@ -39,16 +44,16 @@
       }
     },
     {
-      "id": "Trash Container Open_da4ca286-ff89-4d2d-81e6-626dc7696e9a",
-      "model": "Trash Container Open.glb",
+      "id": "tree_pine_1",
+      "model": "Tree.glb",
       "position": {
-        "x": -14.80182992221274,
+        "x": 8,
         "y": 0,
-        "z": 10.020825873113989
+        "z": -8
       },
       "rotation": {
         "x": 0,
-        "y": -90,
+        "y": 0,
         "z": 0
       },
       "scale": {
@@ -58,8 +63,29 @@
       }
     }
   ],
-  "metadata": {
-    "name": "Demo Map",
-    "lastModified": "2025-03-15T04:02:34.936Z"
+  "camera": {
+    "position": {
+      "x": 0,
+      "y": 20,
+      "z": 20
+    },
+    "target": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    }
+  },
+  "lighting": {
+    "ambient": {
+      "intensity": 1
+    },
+    "directional": {
+      "intensity": 0.5,
+      "direction": {
+        "x": -1,
+        "y": -2,
+        "z": -1
+      }
+    }
   }
 }

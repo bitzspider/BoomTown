@@ -1,4 +1,4 @@
-# BoomTown
+# BoomTown 3D
 
 A fast-paced 3D first-person shooter game built with Babylon.js, featuring a powerful map editor and model viewer. Create your own battlegrounds, test different weapons, and engage in intense combat scenarios.
 

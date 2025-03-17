@@ -8,6 +8,7 @@
     {
       "id": "container_military_1",
       "model": "Shipping Container.glb",
+      "collision": true,
       "position": {
         "x": 5,
         "y": 0,
@@ -27,6 +28,7 @@
     {
       "id": "barrier_concrete_1",
       "model": "Structure.glb",
+      "collision": true,
       "position": {
         "x": -5,
         "y": 0,
@@ -46,6 +48,7 @@
     {
       "id": "tree_pine_1",
       "model": "Tree.glb",
+      "collision": true,
       "position": {
         "x": 8,
         "y": 0,
@@ -65,6 +68,7 @@
     {
       "id": "Tree_02d5a87f-b537-432c-be95-d2946b734b06",
       "model": "Tree.glb",
+      "collision": true,
       "position": {
         "x": -4.992279064865368,
         "y": 0,

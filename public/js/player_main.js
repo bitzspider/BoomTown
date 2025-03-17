@@ -363,8 +363,12 @@ async function startGame(selectedMapId) {
         gameOver = false;
         isPaused = false;
         
-        // Setup input handlers
-        setupInputHandlers();
+        // Setup input handlers after everything is initialized
+        if (scene) {
+            setupInputHandlers(canvas, scene);
+        } else {
+            console.error('Scene is not initialized when setting up input handlers');
+        }
     } catch (error) {
         console.error('Error starting game:', error);
         alert('Failed to start game: ' + error.message);
@@ -700,9 +704,19 @@ function createScene(engine, canvas) {
     window.scene = scene;
     
     // Create and position a free camera
-    camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, GameConfig.player.height, 0), scene);
-    camera.rotation.x = 0; // Ensure camera is level (not looking down)
+    camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 1.6, 0), scene);
+    camera.setTarget(BABYLON.Vector3.Zero());
     camera.attachControl(canvas, true);
+    camera.speed = 0.5;
+    camera.angularSensibility = 2000;
+    camera.inertia = 0.5;
+    
+    // Set up camera collision
+    camera.checkCollisions = true;
+    camera.ellipsoid = new BABYLON.Vector3(0.5, 0.8, 0.5);
+    camera.ellipsoidOffset = new BABYLON.Vector3(0, 0.8, 0);
+    camera.applyGravity = true;
+    camera.collisionMask = 1;
     
     // Disable camera movement with keys (we'll handle this ourselves)
     camera.inputs.removeByType("FreeCameraKeyboardMoveInput");

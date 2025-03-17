@@ -301,67 +301,74 @@ function initializeGame() {
     debugLog("Game initialization complete");
 }
 
+// Start game loop
+function startGameLoop() {
+    scene.registerBeforeRender(() => {
+        updatePlayer();
+        updateEnemies();
+        updateProjectiles();
+        checkCollisions();
+    });
+}
+
+// Start enemy spawning
+function startEnemySpawning() {
+    debugLog("Starting enemy spawning...");
+    // For testing, just spawn one enemy
+    spawnEnemy();
+}
+
 // Start the game
-function startGame() {
-    debugLog("Starting game...");
-    
-    // Check if scene is initialized
-    if (!scene) {
-        console.error("Scene is not initialized. Cannot start game.");
-        return;
-    }
-    
-    // Set game state
-    gameStarted = true;
-    gamePaused = false;
-    gameOver = false;
-    
-    // Reset player stats
-    playerHealth = GameConfig.player.health;
-    playerAmmo = GameConfig.weapons.defaultAmmo;
-    
-    // Reset player physics
-    verticalVelocity = 0;
-    isGrounded = true;
-    
-    // Ensure player is on the ground
-    if (playerMesh) {
-        playerMesh.position.y = GameConfig.player.height / 2;
-        debugLog("Player position reset to ground level: " + JSON.stringify(playerMesh.position));
+async function startGame(selectedMapId) {
+    try {
+        // Initialize map engine
+        const mapEngine = new MapPlayEngine(scene);
         
-        // Reset camera position and rotation
-        if (camera) {
-            camera.position = new BABYLON.Vector3(
-                playerMesh.position.x,
-                playerMesh.position.y + (GameConfig.player.height / 2) - 0.2,
-                playerMesh.position.z
-            );
-            camera.rotation.x = 0; // Ensure camera is level (not looking down)
-            debugLog("Camera reset to level position: " + JSON.stringify(camera.position) + " with rotation: " + JSON.stringify(camera.rotation));
+        // Load map data
+        const mapData = await mapEngine.loadMapData();
+        
+        // Use the map data directly since it's a single map
+        if (!mapData || mapData.id !== selectedMapId) {
+            throw new Error('Selected map not found');
         }
-    }
-    
-    // Update HUD
-    updateHUD();
-    
-    // Request pointer lock
-    canvas.requestPointerLock = 
-        canvas.requestPointerLock || 
-        canvas.msRequestPointerLock || 
-        canvas.mozRequestPointerLock || 
-        canvas.webkitRequestPointerLock;
-    
-    if (canvas.requestPointerLock) {
+        
+        // Render the map
+        await mapEngine.renderMap(mapData);
+        
+        // Set player starting position
+        playerMesh.position = new BABYLON.Vector3(0, 2, 0);
+        playerMesh.rotation = new BABYLON.Vector3(0, 0, 0);
+        
+        // Initialize player state
+        playerHealth = 100;
+        playerAmmo = 30;
+        
+        // Update HUD
+        updateHUD();
+        
+        // Start game loop
+        startGameLoop();
+        
+        // Spawn a single test enemy
+        spawnEnemy();
+        
+        // Hide menu
+        document.getElementById('menu').style.display = 'none';
+        
+        // Request pointer lock
         canvas.requestPointerLock();
+        
+        // Set game state
+        gameStarted = true;
+        gameOver = false;
+        isPaused = false;
+        
+        // Setup input handlers
+        setupInputHandlers();
+    } catch (error) {
+        console.error('Error starting game:', error);
+        alert('Failed to start game: ' + error.message);
     }
-    
-    // Create ammo pickups
-    createAmmoPickups();
-    
-    // Spawn initial enemies
-    spawnInitialEnemies();
-    
-    debugLog("Game started!");
 }
 
 // Spawn initial enemies
@@ -732,12 +739,11 @@ function createScene(engine, canvas) {
     
     debugLog("Ground setup complete");
     
-    // Create walls and obstacles
+    // Create walls
     createWalls();
-    createObstacles();
     
     // Initialize global obstacles array for enemy controller
-    window.obstacles = obstacles;
+    window.obstacles = [];
     
     // Create player mesh
     createPlayerMesh();
@@ -923,6 +929,14 @@ function setupInputHandlers(canvas, scene) {
                         lastWKeyTime = now;
                     }
                 }
+                // Handle ESC key for pause
+                else if (key === 'escape' && gameStarted && !gameOver) {
+                    if (gamePaused) {
+                        resumeGame();
+                    } else {
+                        pauseGame(true);
+                    }
+                }
                 break;
                 
             case BABYLON.KeyboardEventTypes.KEYUP:
@@ -941,8 +955,13 @@ function setupInputHandlers(canvas, scene) {
     
     // Mouse click for shooting and pointer lock
     canvas.addEventListener("mousedown", function(event) {
-        // Request pointer lock on first click
-        if (!isPointerLocked) {
+        // Left click to shoot
+        if (event.button === 0) {
+            shootProjectile();
+        }
+        
+        // Request pointer lock on first click if game is started
+        if (!isPointerLocked && gameStarted && !gamePaused && !gameOver) {
             canvas.requestPointerLock = 
                 canvas.requestPointerLock || 
                 canvas.msRequestPointerLock || 
@@ -952,11 +971,6 @@ function setupInputHandlers(canvas, scene) {
             if (canvas.requestPointerLock) {
                 canvas.requestPointerLock();
             }
-        }
-        
-        // Left click to shoot
-        if (event.button === 0) {
-            shootProjectile();
         }
     });
     
@@ -2470,3 +2484,54 @@ function checkHitboxCollision(projectilePosition, hitbox) {
 
 // Make handleEnemyDeath globally accessible
 window.handleEnemyDeath = handleEnemyDeath;
+
+// Check for collisions
+function checkCollisions() {
+    // Check projectile collisions with obstacles and enemies
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const projectile = projectiles[i];
+        
+        // Check collision with obstacles
+        if (checkCollision(projectile.mesh.position)) {
+            createImpactEffect(projectile.mesh.position);
+            cleanupProjectile(projectile);
+            projectiles.splice(i, 1);
+            continue;
+        }
+        
+        // Check collision with enemies (only for player projectiles)
+        if (!projectile.isEnemyProjectile) {
+            for (const enemyId in enemies) {
+                const enemy = enemies[enemyId];
+                if (!enemy || enemy.health <= 0) continue;
+                
+                // Check collision with enemy hitboxes
+                if (enemy.headHitbox && checkHitboxCollision(projectile.mesh.position, enemy.headHitbox)) {
+                    debugLog(`Enemy ${enemyId} headshot!`);
+                    enemy.health -= 50;
+                    createHitEffect(projectile.mesh.position);
+                    cleanupProjectile(projectile);
+                    projectiles.splice(i, 1);
+                    
+                    if (enemy.health <= 0) {
+                        handleEnemyDeath(enemyId);
+                    }
+                    break;
+                }
+                
+                if (enemy.bodyHitbox && checkHitboxCollision(projectile.mesh.position, enemy.bodyHitbox)) {
+                    debugLog(`Enemy ${enemyId} body shot!`);
+                    enemy.health -= 25;
+                    createHitEffect(projectile.mesh.position);
+                    cleanupProjectile(projectile);
+                    projectiles.splice(i, 1);
+                    
+                    if (enemy.health <= 0) {
+                        handleEnemyDeath(enemyId);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+} 

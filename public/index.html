@@ -94,6 +94,30 @@
         .controls-list li {
             margin: 10px 0;
         }
+        .map-select {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .map-select label {
+            display: block;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        .menu-select {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #2d2d2d;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            min-width: 200px;
+        }
+        .menu-select option {
+            background: #2d2d2d;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -116,6 +140,13 @@
                 <li>MOUSE - Look around</li>
                 <li>LEFT CLICK - Shoot</li>
             </ul>
+        </div>
+
+        <div class="map-select">
+            <label for="mapSelect">Select Map:</label>
+            <select id="mapSelect" class="menu-select">
+                <option value="">Loading maps...</option>
+            </select>
         </div>
         
         <button id="startButton" class="menu-button">Start Game</button>
@@ -140,17 +171,59 @@
     <script src="/js/character_enemy_paths.js"></script>
     <script src="/js/character_enemy_config.js"></script>
     <script src="/js/character_enemy_controller.js"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/map_play_engine.js"></script>
     <script src="/js/player_main.js"></script>
     
     <script>
         // Menu handling
+        let selectedMap = null;
+
+        // Load available maps
+        async function loadMaps() {
+            try {
+                const response = await fetch('/map-data');
+                const data = await response.json();
+                const mapSelect = document.getElementById('mapSelect');
+                
+                // Clear loading option
+                mapSelect.innerHTML = '';
+                
+                // Create a single option for the default map
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.textContent = data.name;
+                mapSelect.appendChild(option);
+                
+                // Select the map by default
+                mapSelect.value = data.id;
+                selectedMap = data.id;
+            } catch (error) {
+                console.error('Error loading maps:', error);
+                document.getElementById('mapSelect').innerHTML = '<option value="">Error loading maps</option>';
+            }
+        }
+
+        // Initialize map selection
+        loadMaps();
+
+        // Handle map selection change
+        document.getElementById('mapSelect').addEventListener('change', function() {
+            selectedMap = this.value;
+        });
+
         document.getElementById('startButton').addEventListener('click', function() {
+            if (!selectedMap) {
+                alert('Please select a map before starting the game.');
+                return;
+            }
+            
             // Hide menu
             document.getElementById('menu').style.display = 'none';
             
-            // Start the game
+            // Start the game with selected map
             if (typeof startGame === 'function') {
-                startGame();
+                startGame(selectedMap);
             }
         });
     </script>

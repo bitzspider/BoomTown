@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>World Map Viewer</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1e1e1e;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        .panel {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+        #menu-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            color: #4CAF50;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1001;
+            transition: opacity 0.3s ease-in-out, background-color 0.2s;
+            opacity: 1;
+        }
+        #menu-button.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #toolbox {
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 8px;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            scrollbar-width: thin;
+            scrollbar-color: #4CAF50 rgba(0, 0, 0, 0.2);
+        }
+        #toolbox.visible {
+            transform: translateX(0);
+        }
+        #toolbox::-webkit-scrollbar {
+            width: 8px;
+        }
+        #toolbox::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        #toolbox::-webkit-scrollbar-thumb {
+            background-color: #4CAF50;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        #toolbox::-webkit-scrollbar-thumb:hover {
+            background-color: #45a049;
+        }
+        .toolbox-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        #controls {
+            top: 20px;
+            right: 20px;
+            min-width: 250px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        #controls.visible {
+            transform: translateX(0);
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            color: #4CAF50;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #status {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+        }
+        .grid-toggle {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .grid-toggle input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        #gridSize {
+            width: 60px;
+            padding: 5px;
+            margin-left: 10px;
+        }
+        .tool-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin: 4px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .tool-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .tool-item.selected {
+            background: #4CAF50;
+        }
+        .tool-item img {
+            width: 48px;
+            height: 48px;
+            margin-right: 10px;
+            background: #333;
+            border-radius: 4px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.2s;
+        }
+        .tool-item:hover img {
+            transform: scale(1.05);
+        }
+        .tool-item.selected img {
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+        .tool-category {
+            margin: 15px 0;
+        }
+        .tool-category-title {
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 8px;
+        }
+        #selection-info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            min-width: 300px;
+        }
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .info-content {
+            display: block;
+        }
+        .info-content.minimized {
+            display: none;
+        }
+        .minimize-btn {
+            background: none;
+            border: none;
+            color: #4CAF50;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        .coordinate-input {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            gap: 10px;
+        }
+        .coordinate-input input {
+            width: 80px;
+            padding: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            color: white;
+            font-family: monospace;
+        }
+        .coordinate-input label {
+            width: 80px;
+        }
+        .coordinate-group {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        .coordinate-group h4 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .key-hint {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .map-select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .map-select option {
+            background: #1e1e1e;
+            color: white;
+        }
+        .save-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+        }
+        .save-input input {
+            flex: 1;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            color: white;
+        }
+        .toolbox-item {
+            padding: 8px;
+            margin: 4px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: move;
+            user-select: none;
+        }
+        .toolbox-item:hover {
+            background-color: #e0e0e0;
+        }
+        #map-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            color: #4CAF50;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1001;
+            transition: opacity 0.3s ease-in-out, background-color 0.2s;
+            opacity: 1;
+        }
+        #map-button.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    
+    <!-- Menu Button -->
+    <button id="menu-button">🛠️</button>
+    
+    <!-- Map Button -->
+    <button id="map-button">🗺️</button>
+    
+    <!-- Toolbox Panel -->
+    <div id="toolbox" class="panel">
+        <div class="toolbox-header">
+            <h2>🛠️ Toolbox</h2>
+            <button class="minimize-btn">✕</button>
+        </div>
+        <div id="tool-categories"></div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div id="controls" class="panel">
+        <div class="toolbox-header">
+            <h2>🗺️ Map Controls</h2>
+            <button class="minimize-btn">✕</button>
+        </div>
+        <div class="control-group">
+            <select id="mapSelect" class="map-select">
+                <option value="map_data.json">Demo Map</option>
+            </select>
+            <button id="loadMapBtn">Load Map</button>
+            <button id="reloadMapBtn">Reload</button>
+        </div>
+        <div class="control-group">
+            <div class="save-input">
+                <input type="text" id="saveMapName" placeholder="Map name" value="Demo Map">
+                <button id="saveMapBtn">Save Map</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="grid-toggle">
+                <input type="checkbox" id="showGrid" checked>
+                <label for="showGrid">Show Grid</label>
+                <input type="number" id="gridSize" value="2" min="1" max="10" step="0.5">
+            </div>
+        </div>
+        <div id="status">Ready to load map...</div>
+    </div>
+
+    <!-- Selection Info Panel -->
+    <div id="selection-info">
+        <div class="info-header">
+            <h3>Selected Object</h3>
+            <button class="minimize-btn">▼</button>
+        </div>
+        <div class="info-content">
+            <div class="info-row">
+                <span>ID: </span>
+                <span id="selected-id"></span>
+            </div>
+            
+            <div class="coordinate-group">
+                <h4>Position</h4>
+                <div class="coordinate-input">
+                    <label>X:</label>
+                    <input type="number" id="pos-x" step="0.1">
+                </div>
+                <div class="coordinate-input">
+                    <label>Y:</label>
+                    <input type="number" id="pos-y" step="0.1">
+                </div>
+                <div class="coordinate-input">
+                    <label>Z:</label>
+                    <input type="number" id="pos-z" step="0.1">
+                </div>
+            </div>
+            
+            <div class="coordinate-group">
+                <h4>Rotation (degrees)</h4>
+                <div class="coordinate-input">
+                    <label>X:</label>
+                    <input type="number" id="rot-x" step="5">
+                </div>
+                <div class="coordinate-input">
+                    <label>Y:</label>
+                    <input type="number" id="rot-y" step="5">
+                </div>
+                <div class="coordinate-input">
+                    <label>Z:</label>
+                    <input type="number" id="rot-z" step="5">
+                </div>
+            </div>
+            
+            <div class="key-hint">
+                Arrow keys: Move object horizontally | Shift + Left/Right: Rotate object | Shift + Up/Down: Move object vertically | Hold CTRL for fine control (0.1 units)
+            </div>
+        </div>
+    </div>
+
+    <!-- Load BabylonJS -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    
+    <!-- Load Yuka -->
+    <script src="https://cdn.jsdelivr.net/npm/yuka@0.7.8/build/yuka.min.js"></script>
+    
+    <!-- Load our scripts -->
+    <script src="js/map_engine.js"></script>
+    
+    <script>
+        // Global variables
+        let engine, scene, camera;
+        let mapEngine;
+        let ground, gridMaterial;
+        let canvas;
+        let selectedTool = null;
+        let selectedObject = null;
+        let isShiftPressed = false;
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        async function initToolbox() {
+            const toolContainer = document.getElementById('tool-categories');
+            toolContainer.innerHTML = '<h2>🛠️ Loading models...</h2>';
+            
+            try {
+                const response = await fetch('/list-models');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch models');
+                }
+                const data = await response.json();
+                
+                // Clear the loading message
+                toolContainer.innerHTML = '';
+                
+                // Create a map of categories
+                const categories = {
+                    'Characters': data.models.filter(m => m.toLowerCase().includes('character')),
+                    'Structures': data.models.filter(m => m.toLowerCase().includes('structure') || m.toLowerCase().includes('container')),
+                    'Barriers': data.models.filter(m => m.toLowerCase().includes('barrier')),
+                    'Environment': data.models.filter(m => m.toLowerCase().includes('tree') || m.toLowerCase().includes('debris')),
+                    'Props': data.models.filter(m => 
+                        m.toLowerCase().includes('barrel') || 
+                        m.toLowerCase().includes('tank') || 
+                        m.toLowerCase().includes('crate')
+                    ),
+                    'Other': data.models.filter(m => 
+                        !m.toLowerCase().includes('character') &&
+                        !m.toLowerCase().includes('structure') &&
+                        !m.toLowerCase().includes('container') &&
+                        !m.toLowerCase().includes('barrier') &&
+                        !m.toLowerCase().includes('tree') &&
+                        !m.toLowerCase().includes('debris') &&
+                        !m.toLowerCase().includes('barrel') &&
+                        !m.toLowerCase().includes('tank') &&
+                        !m.toLowerCase().includes('crate')
+                    )
+                };
+                
+                // Create category sections
+                Object.entries(categories).forEach(([category, models]) => {
+                    if (models.length === 0) return; // Skip empty categories
+                    
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'tool-category';
+                    
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'tool-category-title';
+                    titleDiv.textContent = category;
+                    categoryDiv.appendChild(titleDiv);
+                    
+                    models.forEach(model => {
+                        const toolItem = document.createElement('div');
+                        toolItem.className = 'tool-item';
+                        
+                        // Get the model name without extension
+                        const modelName = model.replace('.glb', '').replace('.gltf', '');
+                        
+                        // Convert model name to image name format (replace spaces with underscores)
+                        const imageName = modelName.replace(/ /g, '_');
+                        
+                        // Check if we have a custom image for this model
+                        const imageUrl = `/img/${imageName}.webp`;
+                        
+                        // Create an image element with error handling to fall back to default
+                        const img = document.createElement('img');
+                        img.alt = modelName;
+                        
+                        // Set default image first, then try to load custom image
+                        img.src = '/icons/model-icon.png'; // Default icon
+                        
+                        // Create a new Image object to check if custom image exists without logging errors
+                        const imageChecker = new Image();
+                        imageChecker.onload = function() {
+                            // If custom image loads successfully, use it
+                            img.src = imageUrl;
+                        };
+                        // No onerror handler needed - if it fails, we keep the default
+                        // No console.log needed - we silently fall back to default
+                        imageChecker.src = imageUrl;
+                        
+                        toolItem.innerHTML = `
+                            <span>${modelName}</span>
+                        `;
+                        toolItem.prepend(img); // Add the image as the first child
+                        
+                        toolItem.addEventListener('click', () => {
+                            document.querySelectorAll('.tool-item').forEach(item => {
+                                item.classList.remove('selected');
+                            });
+                            toolItem.classList.add('selected');
+                            selectedTool = model;
+                        });
+                        
+                        categoryDiv.appendChild(toolItem);
+                    });
+                    
+                    toolContainer.appendChild(categoryDiv);
+                });
+            } catch (error) {
+                console.error('Error loading models:', error);
+                toolContainer.innerHTML = '<h2>🛠️ Error loading models</h2>';
+                document.getElementById('status').textContent = 'Error loading models: ' + error.message;
+                document.getElementById('status').style.color = '#ff4444';
+            }
+        }
+
+        function updateSelectionInfo() {
+            const infoPanel = document.getElementById('selection-info');
+            if (selectedObject) {
+                document.getElementById('selected-id').textContent = selectedObject.id;
+                
+                // Update position inputs
+                document.getElementById('pos-x').value = selectedObject.position.x.toFixed(2);
+                document.getElementById('pos-y').value = selectedObject.position.y.toFixed(2);
+                document.getElementById('pos-z').value = selectedObject.position.z.toFixed(2);
+                
+                // Update rotation inputs (convert to degrees)
+                document.getElementById('rot-x').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.x).toFixed(1);
+                document.getElementById('rot-y').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.y).toFixed(1);
+                document.getElementById('rot-z').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.z).toFixed(1);
+                
+                infoPanel.style.display = 'block';
+            } else {
+                infoPanel.style.display = 'none';
+            }
+        }
+
+        function handleKeyboardInput(event) {
+            if (selectedObject) {
+                // Handle Delete key
+                if (event.key === 'Delete') {
+                    if (confirm(`Are you sure you want to delete object "${selectedObject.id}"?`)) {
+                        console.log('Deleting object:', selectedObject.id);
+                        mapEngine.removeObject(selectedObject.id);
+                        selectedObject = null;
+                        updateSelectionInfo();
+                        camera.attachControl(canvas, true);
+                    }
+                    return;
+                }
+
+                // Prevent default behavior to stop camera movement
+                event.preventDefault();
+
+                const moveStep = event.ctrlKey ? 0.1 : 1; // Smaller step when CTRL is pressed
+                const rotateStep = event.ctrlKey ? Math.PI / 32 : Math.PI / 8; // Finer rotation when CTRL is pressed
+                let positionChanged = false;
+                let rotationChanged = false;
+
+                if (event.shiftKey) {
+                    isShiftPressed = true;
+                    if (event.key === 'ArrowLeft') {
+                        selectedObject.rotation.y += rotateStep;
+                        rotationChanged = true;
+                    } else if (event.key === 'ArrowRight') {
+                        selectedObject.rotation.y -= rotateStep;
+                        rotationChanged = true;
+                    } else if (event.key === 'ArrowUp') {
+                        selectedObject.position.y += moveStep;
+                        positionChanged = true;
+                    } else if (event.key === 'ArrowDown') {
+                        selectedObject.position.y -= moveStep;
+                        positionChanged = true;
+                    }
+                } else {
+                    switch(event.key) {
+                        case 'ArrowLeft':
+                            selectedObject.position.x -= moveStep;
+                            positionChanged = true;
+                            break;
+                        case 'ArrowRight':
+                            selectedObject.position.x += moveStep;
+                            positionChanged = true;
+                            break;
+                        case 'ArrowUp':
+                            selectedObject.position.z -= moveStep;
+                            positionChanged = true;
+                            break;
+                        case 'ArrowDown':
+                            selectedObject.position.z += moveStep;
+                            positionChanged = true;
+                            break;
+                    }
+                }
+
+                // Only update if position or rotation changed
+                if (positionChanged || rotationChanged) {
+                    // Find and update the object in mapData
+                    if (mapEngine.mapData && mapEngine.mapData.objects) {
+                        const objectIndex = mapEngine.mapData.objects.findIndex(obj => obj.id === selectedObject.id);
+                        if (objectIndex !== -1) {
+                            console.log('Before update - Object data:', JSON.stringify(mapEngine.mapData.objects[objectIndex], null, 2));
+                            
+                            // Update the object data
+                            mapEngine.mapData.objects[objectIndex] = {
+                                ...mapEngine.mapData.objects[objectIndex],
+                                position: {
+                                    x: selectedObject.position.x,
+                                    y: selectedObject.position.y,
+                                    z: selectedObject.position.z
+                                },
+                                rotation: {
+                                    x: BABYLON.Tools.ToDegrees(selectedObject.rotation.x),
+                                    y: BABYLON.Tools.ToDegrees(selectedObject.rotation.y),
+                                    z: BABYLON.Tools.ToDegrees(selectedObject.rotation.z)
+                                }
+                            };
+
+                            console.log('After update - Object data:', JSON.stringify(mapEngine.mapData.objects[objectIndex], null, 2));
+                            console.log('Full map data objects array:', JSON.stringify(mapEngine.mapData.objects, null, 2));
+                        } else {
+                            console.warn('Object not found in mapData:', selectedObject.id);
+                        }
+                    }
+                }
+
+                updateSelectionInfo();
+            }
+        }
+
+        function setupSelectionControls() {
+            const infoPanel = document.getElementById('selection-info');
+            const minimizeBtn = infoPanel.querySelector('.minimize-btn');
+            const infoContent = infoPanel.querySelector('.info-content');
+            
+            // Minimize/Maximize functionality
+            minimizeBtn.addEventListener('click', () => {
+                infoContent.classList.toggle('minimized');
+                minimizeBtn.textContent = infoContent.classList.contains('minimized') ? '▲' : '▼';
+            });
+            
+            // Position input handlers
+            ['x', 'y', 'z'].forEach(axis => {
+                const input = document.getElementById(`pos-${axis}`);
+                input.addEventListener('change', () => {
+                    if (selectedObject) {
+                        selectedObject.position[axis] = parseFloat(input.value);
+                        updateMapData();
+                    }
+                });
+            });
+            
+            // Rotation input handlers
+            ['x', 'y', 'z'].forEach(axis => {
+                const input = document.getElementById(`rot-${axis}`);
+                input.addEventListener('change', () => {
+                    if (selectedObject) {
+                        selectedObject.rotation[axis] = BABYLON.Tools.ToRadians(parseFloat(input.value));
+                        updateMapData();
+                    }
+                });
+            });
+        }
+        
+        function updateMapData() {
+            if (selectedObject && mapEngine.mapData && mapEngine.mapData.objects) {
+                const objectIndex = mapEngine.mapData.objects.findIndex(obj => obj.id === selectedObject.id);
+                if (objectIndex !== -1) {
+                    mapEngine.mapData.objects[objectIndex] = {
+                        ...mapEngine.mapData.objects[objectIndex],
+                        position: {
+                            x: selectedObject.position.x,
+                            y: selectedObject.position.y,
+                            z: selectedObject.position.z
+                        },
+                        rotation: {
+                            x: BABYLON.Tools.ToDegrees(selectedObject.rotation.x),
+                            y: BABYLON.Tools.ToDegrees(selectedObject.rotation.y),
+                            z: BABYLON.Tools.ToDegrees(selectedObject.rotation.z)
+                        }
+                    };
+                }
+            }
+        }
+
+        function setupToolboxControls() {
+            const menuButton = document.getElementById('menu-button');
+            const toolbox = document.getElementById('toolbox');
+            const minimizeBtn = toolbox.querySelector('.minimize-btn');
+            
+            menuButton.addEventListener('click', () => {
+                toolbox.classList.add('visible');
+                menuButton.classList.add('hidden');
+            });
+            
+            minimizeBtn.addEventListener('click', () => {
+                toolbox.classList.remove('visible');
+                // Wait for toolbox animation to complete before showing menu button
+                setTimeout(() => {
+                    menuButton.classList.remove('hidden');
+                }, 300);
+            });
+        }
+
+        function setupMapControls() {
+            const mapButton = document.getElementById('map-button');
+            const controls = document.getElementById('controls');
+            const minimizeBtn = controls.querySelector('.minimize-btn');
+            
+            mapButton.addEventListener('click', () => {
+                controls.classList.add('visible');
+                mapButton.classList.add('hidden');
+            });
+            
+            minimizeBtn.addEventListener('click', () => {
+                controls.classList.remove('visible');
+                // Wait for controls animation to complete before showing map button
+                setTimeout(() => {
+                    mapButton.classList.remove('hidden');
+                }, 300);
+            });
+        }
+
+        const createScene = () => {
+            scene = new BABYLON.Scene(engine);
+            
+            // Camera setup
+            camera = new BABYLON.ArcRotateCamera(
+                'camera',
+                BABYLON.Tools.ToRadians(45),
+                BABYLON.Tools.ToRadians(45),
+                20,
+                BABYLON.Vector3.Zero(),
+                scene
+            );
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 5;
+            camera.upperRadiusLimit = 100;
+            camera.setTarget(BABYLON.Vector3.Zero());
+            
+            // Add some ambient light
+            const ambientLight = new BABYLON.HemisphericLight(
+                'ambientLight',
+                new BABYLON.Vector3(0, 1, 0),
+                scene
+            );
+            ambientLight.intensity = 1;
+            
+            // Add directional light for shadows
+            const dirLight = new BABYLON.DirectionalLight(
+                'dirLight',
+                new BABYLON.Vector3(-1, -2, -1),
+                scene
+            );
+            dirLight.intensity = 0.5;
+            
+            // Ground setup with picking
+            ground = BABYLON.MeshBuilder.CreateGround('ground', {
+                width: 100,
+                height: 100,
+                subdivisions: 100
+            }, scene);
+            
+            ground.actionManager = new BABYLON.ActionManager(scene);
+            ground.actionManager.registerAction(
+                new BABYLON.ExecuteCodeAction(
+                    BABYLON.ActionManager.OnPickTrigger,
+                    (evt) => {
+                        if (selectedTool) {
+                            const pickResult = scene.pick(scene.pointerX, scene.pointerY);
+                            if (pickResult.hit && pickResult.pickedMesh === ground) {
+                                const worldPos = pickResult.pickedPoint;
+                                console.log('Picked position:', worldPos);
+                                const id = `${selectedTool.replace('.glb', '')}_${generateUUID()}`;
+                                mapEngine.addObject({
+                                    id: id,
+                                    model: selectedTool,
+                                    position: { 
+                                        x: worldPos.x, 
+                                        y: 0, 
+                                        z: worldPos.z 
+                                    },
+                                    rotation: { x: 0, y: 0, z: 0 },
+                                    scale: { x: 1, y: 1, z: 1 }
+                                });
+                                
+                                // Clear selected tool and remove selection highlight
+                                selectedTool = null;
+                                document.querySelectorAll('.tool-item').forEach(item => {
+                                    item.classList.remove('selected');
+                                });
+                            }
+                        }
+                    }
+                )
+            );
+            
+            // Grid material
+            gridMaterial = new BABYLON.GridMaterial('groundMat', scene);
+            gridMaterial.majorUnitFrequency = 5;
+            gridMaterial.minorUnitVisibility = 0.45;
+            gridMaterial.gridRatio = 1;
+            gridMaterial.mainColor = new BABYLON.Color3(0.2, 0.2, 0.3);
+            gridMaterial.lineColor = new BABYLON.Color3(0.3, 0.3, 0.4);
+            ground.material = gridMaterial;
+
+            // Setup object picking
+            scene.onPointerDown = (evt, pickResult) => {
+                if (evt.button === 0) { // Left click
+                    console.log('Click detected');
+                    
+                    if (pickResult.hit && pickResult.pickedMesh !== ground) {
+                        const pickedMesh = pickResult.pickedMesh;
+                        console.log('Picked mesh:', {
+                            id: pickedMesh.id,
+                            name: pickedMesh.name,
+                            metadata: pickedMesh.metadata
+                        });
+
+                        // Get the ID either from metadata (for child meshes) or directly (for root)
+                        const objectId = pickedMesh.metadata?.parentId || pickedMesh.id;
+                        
+                        if (mapEngine.instances.has(objectId)) {
+                            selectedObject = mapEngine.instances.get(objectId);
+                            console.log('Selected object:', {
+                                id: objectId,
+                                position: selectedObject.position,
+                                rotation: selectedObject.rotation
+                            });
+                            
+                            updateSelectionInfo();
+                            camera.detachControl(canvas);
+                        } else {
+                            console.log('No instance found for ID:', objectId);
+                        }
+                    } else {
+                        // Clicked on ground or empty space
+                        selectedObject = null;
+                        updateSelectionInfo();
+                        camera.attachControl(canvas, true);
+                    }
+                }
+            };
+            
+            // Function to update the selected object UI
+            function updateSelectedObjectUI() {
+                if (selectedObject) {
+                    document.getElementById('selected-id').textContent = selectedObject.id;
+                    document.getElementById('selected-position').textContent =
+                        `X: ${selectedObject.position.x.toFixed(2)}, Z: ${selectedObject.position.z.toFixed(2)}`;
+                    document.getElementById('selected-rotation').textContent =
+                        `${(selectedObject.rotation.y * 180 / Math.PI).toFixed(0)}°`;
+                } else {
+                    document.getElementById('selected-id').textContent = 'None';
+                    document.getElementById('selected-position').textContent = 'X: 0.00, Z: 0.00';
+                    document.getElementById('selected-rotation').textContent = '0°';
+                }
+            }
+            
+            return scene;
+        };
+
+        const init = () => {
+            canvas = document.getElementById('renderCanvas');
+            engine = new BABYLON.Engine(canvas, true);
+            
+            const scene = createScene();
+            mapEngine = new MapEngine(scene);
+            
+            setupControls();
+            initToolbox();
+            setupToolboxControls();
+            setupMapControls();
+            setupSelectionControls();
+            
+            // Setup keyboard events
+            window.addEventListener('keydown', handleKeyboardInput);
+            window.addEventListener('keyup', (event) => {
+                if (event.key === 'Shift') {
+                    isShiftPressed = false;
+                }
+            });
+            
+            engine.runRenderLoop(() => scene.render());
+            window.addEventListener('resize', () => engine.resize());
+        };
+
+        const setupControls = () => {
+            const loadMapBtn = document.getElementById('loadMapBtn');
+            const reloadMapBtn = document.getElementById('reloadMapBtn');
+            const saveMapBtn = document.getElementById('saveMapBtn');
+            const mapSelect = document.getElementById('mapSelect');
+            const saveMapName = document.getElementById('saveMapName');
+            const showGridCheck = document.getElementById('showGrid');
+            const gridSizeInput = document.getElementById('gridSize');
+            const status = document.getElementById('status');
+            
+            loadMapBtn.addEventListener('click', async () => {
+                try {
+                    status.textContent = 'Loading map...';
+                    console.log('Loading map data...');
+                    const mapData = await mapEngine.loadMapData(mapSelect.value);
+                    
+                    // Update dropdown text to match loaded map name
+                    const option = mapSelect.options[mapSelect.selectedIndex];
+                    option.text = mapData.name;
+                    
+                    console.log('Rendering map...');
+                    await mapEngine.renderMap();
+                    status.textContent = 'Map loaded successfully!';
+                    saveMapName.value = mapData.name;
+                } catch (error) {
+                    const errorMessage = `Error: ${error.message}. Check console for details.`;
+                    status.textContent = errorMessage;
+                    status.style.color = '#ff4444';
+                    console.error('Error in map loading:', error);
+                }
+            });
+            
+            reloadMapBtn.addEventListener('click', async () => {
+                try {
+                    status.textContent = 'Reloading map...';
+                    console.log('Reloading map data...');
+                    await mapEngine.loadMapData(mapSelect.value);
+                    console.log('Re-rendering map...');
+                    await mapEngine.renderMap();
+                    status.textContent = 'Map reloaded successfully!';
+                } catch (error) {
+                    const errorMessage = `Error: ${error.message}. Check console for details.`;
+                    status.textContent = errorMessage;
+                    status.style.color = '#ff4444';
+                    console.error('Error in map reloading:', error);
+                }
+            });
+
+            saveMapBtn.addEventListener('click', async () => {
+                const newMapName = saveMapName.value.trim() || 'Demo Map';
+                const currentMapName = mapSelect.options[mapSelect.selectedIndex].text;
+                const isRename = currentMapName !== newMapName;
+                
+                status.textContent = isRename ? 'Renaming and saving map...' : 'Saving map...';
+                
+                try {
+                    if (isRename) {
+                        // Get the current map data to verify ID
+                        const mapData = await mapEngine.getMapData();
+                        
+                        // Send request to rename the map
+                        const response = await fetch('/rename-map', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                mapId: mapData.id,
+                                oldName: currentMapName,
+                                newName: newMapName
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(result.error || 'Failed to rename map');
+                        }
+                        
+                        // Reload the page to refresh the map data
+                        window.location.reload();
+                    } else {
+                        // Regular save without rename
+                        await mapEngine.saveMap(newMapName);
+                        status.textContent = `Map saved successfully as "${newMapName}"`;
+                        status.style.color = '#4CAF50';
+                    }
+                } catch (error) {
+                    status.textContent = `Error: ${error.message}`;
+                    status.style.color = '#ff4444';
+                    console.error('Error in map saving:', error);
+                }
+            });
+            
+            // Add handler for map selection change
+            mapSelect.addEventListener('change', () => {
+                saveMapName.value = mapSelect.options[mapSelect.selectedIndex].text;
+            });
+            
+            showGridCheck.addEventListener('change', () => {
+                ground.material = showGridCheck.checked ? gridMaterial : null;
+            });
+            
+            gridSizeInput.addEventListener('change', () => {
+                const size = parseFloat(gridSizeInput.value);
+                if (size > 0) {
+                    gridMaterial.gridRatio = size;
+                    gridMaterial.majorUnitFrequency = 5 / size;
+                }
+            });
+        };
+
+        // Initialize the application
+        window.addEventListener('DOMContentLoaded', () => {
+            init();
+        });
+
+        // Also update the initial map load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const mapData = await mapEngine.loadMapData('map_data.json');
+                const option = mapSelect.options[mapSelect.selectedIndex];
+                option.text = mapData.name;
+                saveMapName.value = mapData.name;
+                await mapEngine.renderMap();
+            } catch (error) {
+                console.error('Error loading initial map:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

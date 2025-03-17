@@ -28,6 +28,8 @@
             padding: 20px;
             border-radius: 8px;
             min-width: 300px;
+            max-height: 90vh; /* Limit height */
+            overflow-y: auto; /* Add scrolling */
             border: 2px solid #666;
             box-shadow: 0 0 20px rgba(0,0,0,0.8);
             z-index: 9999;
@@ -146,6 +148,113 @@
             background: rgba(0,0,0,0.2);
             border-radius: 3px;
         }
+        /* Model Attributes Panel Styles */
+        #modelAttributesPanel {
+            display: block !important; /* Force display */
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .mesh-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: #4a4a4a #2d2d2d;
+        }
+        .mesh-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .mesh-list::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 4px;
+        }
+        .mesh-list::-webkit-scrollbar-thumb {
+            background-color: #4a4a4a;
+            border-radius: 4px;
+        }
+        .mesh-item {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 5px;
+        }
+        .mesh-name {
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .mesh-details {
+            font-size: 12px;
+            color: #aaa;
+            margin-left: 10px;
+        }
+        .color-picker {
+            margin-left: auto;
+            width: 30px;
+            height: 20px;
+            border: none;
+            cursor: pointer;
+        }
+        .weapon-controls {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+        .weapon-controls h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        .weapon-controls button {
+            margin: 5px;
+            padding: 8px;
+            font-size: 12px;
+        }
+        /* New styles for mesh attribute controls */
+        .details-btn {
+            background: #333;
+            color: #4CAF50;
+            border: 1px solid #444;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .details-btn:hover {
+            background: #444;
+        }
+        
+        .reset-btn {
+            background: #333;
+            color: #ddd;
+            border: 1px solid #444;
+            border-radius: 3px;
+            padding: 5px;
+            margin: 5px 0;
+            font-size: 12px;
+            cursor: pointer;
+            width: auto;
+            display: inline-block;
+        }
+        
+        .reset-btn:hover {
+            background: #444;
+        }
+        
+        .vector-control, .material-controls {
+            background: rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .transform-controls {
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -255,6 +364,15 @@
             <input type="range" id="speedSlider" min="0.1" max="2" step="0.1" value="1">
         </div>
         <div id="info"></div>
+        
+        <!-- Model Attributes Panel -->
+        <div class="control-group" id="modelAttributesPanel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: #4CAF50; margin-top: 0; margin-bottom: 10px;">Model Attributes</h3>
+                <button id="refreshAttributes" style="width: auto; padding: 5px 10px; margin: 0;">Refresh</button>
+            </div>
+            <div id="meshList" class="mesh-list"></div>
+        </div>
     </div>
 
     <!-- Load BabylonJS -->
@@ -323,6 +441,12 @@
 
                 // Remove previous model if it exists
                 if (currentModel) {
+                    // Stop all animations before disposing
+                    if (scene.animationGroups) {
+                        scene.animationGroups.forEach(group => {
+                            group.stop();
+                        });
+                    }
                     currentModel.dispose();
                 }
                 
@@ -341,8 +465,15 @@
                 currentModel = result.meshes[0];
                 currentModel.position = new BABYLON.Vector3(0, 0, 0);
                 
-                // Store animation groups
-                animationGroups = result.animationGroups;
+                // Store animation groups and ensure they're properly initialized
+                animationGroups = scene.animationGroups.slice(); // Make a copy of all animation groups
+                
+                // Reset all animation groups to ensure proper state
+                animationGroups.forEach(group => {
+                    group.reset();
+                    group.stop();
+                });
+                
                 console.log("Available animations:", animationGroups.map(g => g.name));
                 
                 // Show/hide animation controls based on whether the model has animations
@@ -358,6 +489,9 @@
                 
                 // Update animation dropdown
                 updateAnimationList();
+                
+                // Display model attributes
+                displayModelAttributes();
 
                 status.textContent = `${modelFile} loaded successfully${hasAnimations ? ` (${animationGroups.length} animations)` : ' (static model)'}`;
                 status.style.color = '#4CAF50';
@@ -373,17 +507,34 @@
             const select = document.getElementById('animationSelect');
             select.innerHTML = ''; // Clear existing options
             
+            if (animationGroups.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.text = 'No animations available';
+                select.appendChild(option);
+                return;
+            }
+            
+            let idleIndex = -1;
+            
             animationGroups.forEach((group, index) => {
                 const option = document.createElement('option');
                 option.value = index;
                 option.text = group.name;
                 select.appendChild(option);
 
-                // Set default to Idle if found
-                if (group.name === 'Idle') {
-                    select.value = index;
+                // Find Idle animation if available
+                if (group.name.toLowerCase().includes('idle')) {
+                    idleIndex = index;
                 }
             });
+
+            // Set default to Idle if found, otherwise first animation
+            if (idleIndex >= 0) {
+                select.value = idleIndex;
+            } else if (animationGroups.length > 0) {
+                select.value = 0;
+            }
 
             // Update info
             updateInfo();
@@ -405,9 +556,14 @@
             });
 
             select.addEventListener('change', () => {
-                console.log("Animation selected:", select.options[select.selectedIndex].text);
+                if (select.value === '') return;
+                
+                const selectedAnimation = animationGroups[select.value];
+                console.log("Animation selected:", selectedAnimation ? selectedAnimation.name : 'None');
+                
+                // Don't auto-play when just selecting
                 stopCurrentAnimation();
-                playSelectedAnimation();
+                updateInfo();
             });
 
             loopCheckbox.addEventListener('change', () => {
@@ -438,12 +594,20 @@
         }
 
         function stopCurrentAnimation() {
+            // Stop all animations to be safe
+            if (scene && scene.animationGroups) {
+                scene.animationGroups.forEach(group => {
+                    group.stop();
+                });
+            }
+            
             if (currentAnimation) {
                 console.log("Stopping animation:", currentAnimation.name);
                 currentAnimation.stop();
                 currentAnimation = null;
-                updateInfo();
             }
+            
+            updateInfo();
         }
 
         function playSelectedAnimation() {
@@ -453,25 +617,50 @@
             const loopCheckbox = document.getElementById('loopAnimation');
             const speedSlider = document.getElementById('speedSlider');
             
-            if (select.value !== '' && animationGroups[select.value]) {
-                currentAnimation = animationGroups[select.value];
-                currentAnimation.loopAnimation = loopCheckbox.checked;
-                currentAnimation.speedRatio = parseFloat(speedSlider.value);
-                console.log("Playing animation:", currentAnimation.name, 
-                          "Loop:", currentAnimation.loopAnimation,
-                          "Speed:", currentAnimation.speedRatio);
-                currentAnimation.start();
-                updateInfo();
+            if (select.value === '' || !animationGroups[select.value]) {
+                console.log("No animation selected or available");
+                return;
             }
+            
+            currentAnimation = animationGroups[select.value];
+            
+            // Reset the animation before playing
+            currentAnimation.reset();
+            
+            // Set properties
+            currentAnimation.loopAnimation = loopCheckbox.checked;
+            currentAnimation.speedRatio = parseFloat(speedSlider.value);
+            
+            console.log("Playing animation:", currentAnimation.name, 
+                      "Loop:", currentAnimation.loopAnimation,
+                      "Speed:", currentAnimation.speedRatio);
+            
+            // Start the animation
+            currentAnimation.start(true); // true = reset the animation
+            
+            updateInfo();
         }
 
         function updateInfo() {
             const info = document.getElementById('info');
             const modelSelect = document.getElementById('modelSelect');
+            const animSelect = document.getElementById('animationSelect');
+            
+            let currentAnimName = 'None';
+            if (currentAnimation) {
+                currentAnimName = currentAnimation.name;
+            } else if (animSelect.value !== '' && animationGroups[animSelect.value]) {
+                currentAnimName = animationGroups[animSelect.value].name + ' (paused)';
+            }
+            
+            // Get mesh count
+            const meshCount = currentModel ? currentModel.getChildMeshes().length : 0;
+            
             info.innerHTML = `
                 <br>Current Model: ${modelSelect.options[modelSelect.selectedIndex].text}
+                <br>Mesh Count: ${meshCount}
                 <br>Available Animations: ${animationGroups.length}
-                <br>Current Animation: ${currentAnimation ? currentAnimation.name : 'None'}
+                <br>Current Animation: ${currentAnimName}
                 <br>
                 <br>Controls:
                 <br>- Left Mouse: Rotate
@@ -479,6 +668,479 @@
                 <br>- Mouse Wheel: Zoom
             `;
         }
+
+        // Function to analyze and display model parts
+        function displayModelAttributes() {
+            const meshList = document.getElementById('meshList');
+            const attributesPanel = document.getElementById('modelAttributesPanel');
+            
+            console.log("Display model attributes called");
+            console.log("meshList element exists:", !!meshList);
+            console.log("attributesPanel element exists:", !!attributesPanel);
+            
+            if (!currentModel || !meshList) {
+                console.error("Cannot display model attributes: currentModel or meshList is missing");
+                return;
+            }
+            
+            // Make sure the panel is visible
+            if (attributesPanel) {
+                attributesPanel.style.display = 'block';
+                console.log("Set attributesPanel display to block");
+            }
+            
+            meshList.innerHTML = '';
+            
+            // Get all meshes in the model
+            const allMeshes = currentModel.getChildMeshes();
+            console.log("Model contains", allMeshes.length, "meshes");
+            
+            // Add meshes to the list
+            allMeshes.forEach((mesh, index) => {
+                const meshItem = document.createElement('div');
+                meshItem.className = 'mesh-item';
+                
+                // Create visibility toggle
+                const visToggle = document.createElement('input');
+                visToggle.type = 'checkbox';
+                visToggle.id = `mesh-vis-${index}`;
+                visToggle.checked = mesh.isVisible;
+                visToggle.addEventListener('change', () => {
+                    mesh.isVisible = visToggle.checked;
+                });
+                
+                // Create label with mesh info
+                const label = document.createElement('label');
+                label.htmlFor = `mesh-vis-${index}`;
+                
+                // Get material info if available
+                let materialInfo = 'No material';
+                if (mesh.material) {
+                    if (mesh.material.diffuseColor) {
+                        const color = mesh.material.diffuseColor;
+                        materialInfo = `Color: RGB(${Math.round(color.r*255)},${Math.round(color.g*255)},${Math.round(color.b*255)})`;
+                    } else {
+                        materialInfo = `Material: ${mesh.material.name || 'Unnamed'}`;
+                    }
+                }
+                
+                label.innerHTML = `
+                    <span class="mesh-name">${mesh.name || `Mesh ${index}`}</span>
+                    <span class="mesh-details">${materialInfo}</span>
+                `;
+                
+                // Add color picker if mesh has a material with diffuse color
+                if (mesh.material && mesh.material.diffuseColor) {
+                    const colorPicker = document.createElement('input');
+                    colorPicker.type = 'color';
+                    colorPicker.className = 'color-picker';
+                    
+                    // Convert Babylon color to hex
+                    const r = Math.round(mesh.material.diffuseColor.r * 255).toString(16).padStart(2, '0');
+                    const g = Math.round(mesh.material.diffuseColor.g * 255).toString(16).padStart(2, '0');
+                    const b = Math.round(mesh.material.diffuseColor.b * 255).toString(16).padStart(2, '0');
+                    colorPicker.value = `#${r}${g}${b}`;
+                    
+                    colorPicker.addEventListener('input', () => {
+                        // Convert hex to Babylon color
+                        const hex = colorPicker.value.substring(1);
+                        const r = parseInt(hex.substring(0, 2), 16) / 255;
+                        const g = parseInt(hex.substring(2, 4), 16) / 255;
+                        const b = parseInt(hex.substring(4, 6), 16) / 255;
+                        
+                        mesh.material.diffuseColor = new BABYLON.Color3(r, g, b);
+                    });
+                    
+                    meshItem.appendChild(colorPicker);
+                }
+                
+                // Add elements to the mesh item
+                meshItem.appendChild(visToggle);
+                meshItem.appendChild(label);
+                
+                // Create expandable details section
+                const detailsBtn = document.createElement('button');
+                detailsBtn.className = 'details-btn';
+                detailsBtn.textContent = '⚙️';
+                detailsBtn.title = 'Show/hide advanced controls';
+                detailsBtn.style.width = 'auto';
+                detailsBtn.style.padding = '2px 5px';
+                detailsBtn.style.marginLeft = '5px';
+                
+                const detailsSection = document.createElement('div');
+                detailsSection.className = 'mesh-details-section';
+                detailsSection.style.display = 'none';
+                detailsSection.style.padding = '10px';
+                detailsSection.style.marginTop = '5px';
+                detailsSection.style.backgroundColor = 'rgba(0,0,0,0.2)';
+                detailsSection.style.borderRadius = '4px';
+                
+                // Toggle details section visibility
+                detailsBtn.addEventListener('click', () => {
+                    const isVisible = detailsSection.style.display !== 'none';
+                    detailsSection.style.display = isVisible ? 'none' : 'block';
+                    detailsBtn.textContent = isVisible ? '⚙️' : '✖️';
+                });
+                
+                meshItem.appendChild(detailsBtn);
+                
+                // Create transform controls (position, rotation, scale)
+                const transformControls = document.createElement('div');
+                transformControls.className = 'transform-controls';
+                
+                // Position controls
+                const positionControls = createVectorControls('Position', mesh.position, (axis, value) => {
+                    mesh.position[axis] = parseFloat(value);
+                });
+                
+                // Rotation controls (convert to degrees for display)
+                const rotationControls = createVectorControls('Rotation', 
+                    { 
+                        x: BABYLON.Tools.ToDegrees(mesh.rotation.x), 
+                        y: BABYLON.Tools.ToDegrees(mesh.rotation.y), 
+                        z: BABYLON.Tools.ToDegrees(mesh.rotation.z) 
+                    }, 
+                    (axis, value) => {
+                        mesh.rotation[axis] = BABYLON.Tools.ToRadians(parseFloat(value));
+                    },
+                    true // Is rotation (uses degrees)
+                );
+                
+                // Scale controls
+                const scaleControls = createVectorControls('Scale', mesh.scaling, (axis, value) => {
+                    mesh.scaling[axis] = parseFloat(value);
+                });
+                
+                // Add reset buttons for each transform
+                const resetPosition = document.createElement('button');
+                resetPosition.textContent = 'Reset Position';
+                resetPosition.className = 'reset-btn';
+                resetPosition.addEventListener('click', () => {
+                    mesh.position = new BABYLON.Vector3(0, 0, 0);
+                    updateVectorInputs(positionControls, mesh.position);
+                });
+                
+                const resetRotation = document.createElement('button');
+                resetRotation.textContent = 'Reset Rotation';
+                resetRotation.className = 'reset-btn';
+                resetRotation.addEventListener('click', () => {
+                    mesh.rotation = new BABYLON.Vector3(0, 0, 0);
+                    updateVectorInputs(rotationControls, { 
+                        x: 0, y: 0, z: 0 
+                    }, true);
+                });
+                
+                const resetScale = document.createElement('button');
+                resetScale.textContent = 'Reset Scale';
+                resetScale.className = 'reset-btn';
+                resetScale.addEventListener('click', () => {
+                    mesh.scaling = new BABYLON.Vector3(1, 1, 1);
+                    updateVectorInputs(scaleControls, mesh.scaling);
+                });
+                
+                // Add material controls if available
+                let materialControls = document.createElement('div');
+                materialControls.className = 'material-controls';
+                
+                if (mesh.material) {
+                    const materialTitle = document.createElement('h4');
+                    materialTitle.textContent = 'Material Properties';
+                    materialTitle.style.marginBottom = '5px';
+                    materialTitle.style.color = '#4CAF50';
+                    materialControls.appendChild(materialTitle);
+                    
+                    // Add alpha (transparency) control if available
+                    if (mesh.material.alpha !== undefined) {
+                        const alphaControl = createSliderControl('Transparency', mesh.material.alpha, 0, 1, 0.01, (value) => {
+                            mesh.material.alpha = parseFloat(value);
+                        });
+                        materialControls.appendChild(alphaControl);
+                    }
+                    
+                    // Add emissive color control if available
+                    if (mesh.material.emissiveColor) {
+                        const emissiveControl = createColorControl('Emissive', mesh.material.emissiveColor, (color) => {
+                            mesh.material.emissiveColor = color;
+                        });
+                        materialControls.appendChild(emissiveControl);
+                    }
+                    
+                    // Add specular color control if available
+                    if (mesh.material.specularColor) {
+                        const specularControl = createColorControl('Specular', mesh.material.specularColor, (color) => {
+                            mesh.material.specularColor = color;
+                        });
+                        materialControls.appendChild(specularControl);
+                    }
+                    
+                    // Add wireframe toggle if available
+                    if (mesh.material.wireframe !== undefined) {
+                        const wireframeControl = createCheckboxControl('Wireframe', mesh.material.wireframe, (checked) => {
+                            mesh.material.wireframe = checked;
+                        });
+                        materialControls.appendChild(wireframeControl);
+                    }
+                }
+                
+                // Add all controls to the details section
+                transformControls.appendChild(positionControls);
+                transformControls.appendChild(resetPosition);
+                transformControls.appendChild(rotationControls);
+                transformControls.appendChild(resetRotation);
+                transformControls.appendChild(scaleControls);
+                transformControls.appendChild(resetScale);
+                
+                detailsSection.appendChild(transformControls);
+                detailsSection.appendChild(materialControls);
+                
+                meshItem.appendChild(detailsSection);
+                
+                // Add the mesh item to the list
+                meshList.appendChild(meshItem);
+            });
+            
+            // Add weapon toggle controls for character models
+            if (currentModel.name && currentModel.name.toLowerCase().includes('character')) {
+                // Find weapon meshes
+                const weapons = allMeshes.filter(mesh => 
+                    mesh.name.toLowerCase().includes('knife') || 
+                    mesh.name.toLowerCase().includes('gun') || 
+                    mesh.name.toLowerCase().includes('pistol') ||
+                    mesh.name.toLowerCase().includes('rifle') ||
+                    mesh.name.toLowerCase().includes('weapon')
+                );
+                
+                if (weapons.length > 0) {
+                    const weaponControls = document.createElement('div');
+                    weaponControls.className = 'weapon-controls';
+                    weaponControls.innerHTML = '<h4>Weapon Controls</h4>';
+                    
+                    // Add "No Weapons" button
+                    const noWeaponsBtn = document.createElement('button');
+                    noWeaponsBtn.textContent = 'Hide All Weapons';
+                    noWeaponsBtn.addEventListener('click', () => {
+                        weapons.forEach(weapon => {
+                            weapon.isVisible = false;
+                            // Update the corresponding checkbox
+                            const index = allMeshes.indexOf(weapon);
+                            const checkbox = document.getElementById(`mesh-vis-${index}`);
+                            if (checkbox) checkbox.checked = false;
+                        });
+                    });
+                    weaponControls.appendChild(noWeaponsBtn);
+                    
+                    // Add individual weapon toggle buttons
+                    weapons.forEach(weapon => {
+                        const btn = document.createElement('button');
+                        btn.textContent = `Show Only ${weapon.name}`;
+                        btn.addEventListener('click', () => {
+                            weapons.forEach(w => {
+                                const shouldBeVisible = w === weapon;
+                                w.isVisible = shouldBeVisible;
+                                
+                                // Update the corresponding checkbox
+                                const index = allMeshes.indexOf(w);
+                                const checkbox = document.getElementById(`mesh-vis-${index}`);
+                                if (checkbox) checkbox.checked = shouldBeVisible;
+                            });
+                        });
+                        weaponControls.appendChild(btn);
+                    });
+                    
+                    meshList.appendChild(weaponControls);
+                }
+            }
+        }
+        
+        // Helper function to create vector controls (position, rotation, scale)
+        function createVectorControls(label, vector, onChange, isRotation = false) {
+            const container = document.createElement('div');
+            container.className = 'vector-control';
+            container.style.marginBottom = '10px';
+            
+            const title = document.createElement('div');
+            title.textContent = label;
+            title.style.fontWeight = 'bold';
+            title.style.marginBottom = '5px';
+            container.appendChild(title);
+            
+            const axes = ['x', 'y', 'z'];
+            const inputs = {};
+            
+            axes.forEach(axis => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.marginBottom = '3px';
+                
+                const axisLabel = document.createElement('label');
+                axisLabel.textContent = axis.toUpperCase() + ':';
+                axisLabel.style.width = '20px';
+                axisLabel.style.marginRight = '5px';
+                
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.value = vector[axis].toFixed(2);
+                input.step = isRotation ? '5' : '0.1';
+                input.style.width = '60px';
+                input.style.padding = '3px';
+                input.style.backgroundColor = 'rgba(0,0,0,0.3)';
+                input.style.border = '1px solid #444';
+                input.style.borderRadius = '3px';
+                input.style.color = 'white';
+                
+                input.addEventListener('change', () => {
+                    onChange(axis, input.value);
+                });
+                
+                inputs[axis] = input;
+                
+                row.appendChild(axisLabel);
+                row.appendChild(input);
+                container.appendChild(row);
+            });
+            
+            // Store inputs for later updates
+            container.inputs = inputs;
+            
+            return container;
+        }
+        
+        // Helper function to update vector input values
+        function updateVectorInputs(container, vector, isRotation = false) {
+            if (!container.inputs) return;
+            
+            for (const axis in container.inputs) {
+                const value = isRotation ? 
+                    BABYLON.Tools.ToDegrees(vector[axis]).toFixed(2) : 
+                    vector[axis].toFixed(2);
+                container.inputs[axis].value = value;
+            }
+        }
+        
+        // Helper function to create a slider control
+        function createSliderControl(label, value, min, max, step, onChange) {
+            const container = document.createElement('div');
+            container.className = 'slider-control';
+            container.style.marginBottom = '10px';
+            
+            const title = document.createElement('div');
+            title.textContent = label;
+            title.style.fontWeight = 'bold';
+            title.style.marginBottom = '5px';
+            container.appendChild(title);
+            
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = min;
+            slider.max = max;
+            slider.step = step;
+            slider.value = value;
+            slider.style.flex = '1';
+            
+            const valueDisplay = document.createElement('span');
+            valueDisplay.textContent = value.toFixed(2);
+            valueDisplay.style.marginLeft = '10px';
+            valueDisplay.style.width = '40px';
+            valueDisplay.style.textAlign = 'right';
+            
+            slider.addEventListener('input', () => {
+                const newValue = parseFloat(slider.value);
+                valueDisplay.textContent = newValue.toFixed(2);
+                onChange(newValue);
+            });
+            
+            row.appendChild(slider);
+            row.appendChild(valueDisplay);
+            container.appendChild(row);
+            
+            return container;
+        }
+        
+        // Helper function to create a color control
+        function createColorControl(label, color, onChange) {
+            const container = document.createElement('div');
+            container.className = 'color-control';
+            container.style.marginBottom = '10px';
+            
+            const title = document.createElement('div');
+            title.textContent = label + ' Color';
+            title.style.fontWeight = 'bold';
+            title.style.marginBottom = '5px';
+            container.appendChild(title);
+            
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            
+            const colorPicker = document.createElement('input');
+            colorPicker.type = 'color';
+            colorPicker.style.width = '40px';
+            colorPicker.style.height = '25px';
+            colorPicker.style.border = 'none';
+            colorPicker.style.cursor = 'pointer';
+            
+            // Convert Babylon color to hex
+            const r = Math.round(color.r * 255).toString(16).padStart(2, '0');
+            const g = Math.round(color.g * 255).toString(16).padStart(2, '0');
+            const b = Math.round(color.b * 255).toString(16).padStart(2, '0');
+            colorPicker.value = `#${r}${g}${b}`;
+            
+            colorPicker.addEventListener('input', () => {
+                // Convert hex to Babylon color
+                const hex = colorPicker.value.substring(1);
+                const r = parseInt(hex.substring(0, 2), 16) / 255;
+                const g = parseInt(hex.substring(2, 4), 16) / 255;
+                const b = parseInt(hex.substring(4, 6), 16) / 255;
+                
+                onChange(new BABYLON.Color3(r, g, b));
+            });
+            
+            row.appendChild(colorPicker);
+            container.appendChild(row);
+            
+            return container;
+        }
+        
+        // Helper function to create a checkbox control
+        function createCheckboxControl(label, checked, onChange) {
+            const container = document.createElement('div');
+            container.className = 'checkbox-control';
+            container.style.marginBottom = '10px';
+            
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = checked;
+            checkbox.style.marginRight = '5px';
+            
+            const title = document.createElement('label');
+            title.textContent = label;
+            title.style.fontWeight = 'bold';
+            
+            checkbox.addEventListener('change', () => {
+                onChange(checkbox.checked);
+            });
+            
+            row.appendChild(checkbox);
+            row.appendChild(title);
+            container.appendChild(row);
+            
+            return container;
+        }
+
+        // Add event listener for the refresh button
+        document.getElementById('refreshAttributes').addEventListener('click', () => {
+            console.log("Manually refreshing model attributes");
+            displayModelAttributes();
+        });
 
         // Initialize the scene
         initScene();

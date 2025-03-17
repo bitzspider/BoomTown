@@ -237,25 +237,32 @@ class MapEngine {
                 version: "1.0",
                 gridSize: 1,
                 showGrid: true,
-                objects: Array.from(this.instances.values()).map(instance => ({
-                    id: instance.id,
-                    model: instance.model,
-                    position: {
-                        x: instance.position.x,
-                        y: instance.position.y,
-                        z: instance.position.z
-                    },
-                    rotation: {
-                        x: BABYLON.Tools.ToDegrees(instance.rotation.x),
-                        y: BABYLON.Tools.ToDegrees(instance.rotation.y),
-                        z: BABYLON.Tools.ToDegrees(instance.rotation.z)
-                    },
-                    scale: {
-                        x: instance.scaling.x,
-                        y: instance.scaling.y,
-                        z: instance.scaling.z
-                    }
-                })),
+                objects: this.mapData.objects.map(obj => {
+                    // Find the instance for this object
+                    const instance = this.instances.get(obj.id);
+                    
+                    // If instance exists, use its current position/rotation/scale
+                    // Otherwise use the stored data from mapData
+                    return {
+                        id: obj.id,
+                        model: obj.model, // Keep the original model name
+                        position: instance ? {
+                            x: instance.position.x,
+                            y: instance.position.y,
+                            z: instance.position.z
+                        } : obj.position,
+                        rotation: instance ? {
+                            x: BABYLON.Tools.ToDegrees(instance.rotation.x),
+                            y: BABYLON.Tools.ToDegrees(instance.rotation.y),
+                            z: BABYLON.Tools.ToDegrees(instance.rotation.z)
+                        } : obj.rotation,
+                        scale: instance ? {
+                            x: instance.scaling.x,
+                            y: instance.scaling.y,
+                            z: instance.scaling.z
+                        } : obj.scale
+                    };
+                }),
                 camera: {
                     position: {
                         x: this.scene.activeCamera.position.x,

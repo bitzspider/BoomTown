@@ -4,35 +4,26 @@ class MapPlayEngine {
         this.scene = scene;
         this.loadedModels = new Map();
         this.instances = new Map();
+        this.loadedObjects = []; // Initialize loadedObjects array
         
         // Enable collision system
         this.scene.collisionsEnabled = true;
-        this.scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
+        this.scene.gravity = new BABYLON.Vector3(0, -9.81 / 60, 0);
         
-        // Initialize Ammo.js physics engine
-        const physicsEngine = new BABYLON.AmmoJSPlugin();
-        this.scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), physicsEngine);
-        
-        // Enable collision detection for all meshes that start with 'collision_'
-        this.scene.meshes.forEach(mesh => {
-            if (mesh.name.startsWith('collision_')) {
-                mesh.checkCollisions = true;
-                mesh.isPickable = true;
-                mesh.collisionMask = 1;
-                mesh.useOctreeForCollisions = true;
-            }
-        });
+        console.log("MapPlayEngine initialized with collision system");
     }
 
     // Load map data from server
     async loadMapData() {
         try {
             const response = await fetch('/map-data');
-            const data = await response.json();
-            console.log('Raw map data loaded:', data);
-            return data;
+            const mapData = await response.json();
+            
+            // Return the data so it can be used by renderMap
+            return mapData;
+            
         } catch (error) {
-            console.error('Error loading map data:', error);
+            console.error("Error loading map data:", error);
             throw error;
         }
     }
@@ -40,6 +31,11 @@ class MapPlayEngine {
     // Render the map
     async renderMap(mapData) {
         console.log('Starting map render with data:', mapData);
+        
+        if (!mapData || !mapData.objects) {
+            console.error('Invalid map data:', mapData);
+            return;
+        }
         
         // Clear all existing instances
         this.clearAllInstances();
@@ -51,12 +47,10 @@ class MapPlayEngine {
                 await this.createInstance(obj);
             } catch (error) {
                 console.error(`Failed to create instance for object ${obj.id}:`, error);
-                // Continue with next object instead of stopping the entire render
                 continue;
             }
         }
         
-        // Log final instance positions
         console.log('Map render complete. Instance positions:', Array.from(this.instances.values()));
     }
 
@@ -93,39 +87,49 @@ class MapPlayEngine {
         // Handle collision if specified (default to true)
         const hasCollision = obj.collision !== false;
         if (hasCollision) {
-            // Create collision mesh
-            const collisionMesh = BABYLON.MeshBuilder.CreateBox(
-                `collision_${obj.id}`,
-                {
-                    width: obj.scale?.x || 1,
-                    height: obj.scale?.y || 1,
-                    depth: obj.scale?.z || 1
-                },
-                this.scene
-            );
+            // Enable collisions on all meshes
+            const meshes = [instance.rootMesh, ...instance.rootMesh.getChildMeshes()];
+            meshes.forEach(mesh => {
+                mesh.checkCollisions = true;
+            });
             
-            // Position and rotate collision mesh to match visual mesh
-            collisionMesh.position = instance.rootMesh.position.clone();
-            collisionMesh.rotation = instance.rootMesh.rotation.clone();
-            collisionMesh.scaling = instance.rootMesh.scaling.clone();
-            
-            // Make collision mesh invisible
-            collisionMesh.isVisible = false;
-            
-            // Set up collision properties
-            collisionMesh.checkCollisions = true;
-            collisionMesh.isPickable = true;
-            collisionMesh.collisionMask = 1;
-            collisionMesh.useOctreeForCollisions = true;
-            
-            // Make the visual mesh also check for collisions
-            instance.rootMesh.checkCollisions = true;
-            instance.rootMesh.isPickable = true;
-            instance.rootMesh.collisionMask = 1;
-            instance.rootMesh.useOctreeForCollisions = true;
-            
-            // Store collision mesh reference
-            instance.collisionMesh = collisionMesh;
+            // Only create a simple debug visualization for hitboxes if debug is enabled
+            if (GameConfig?.debug?.showHitboxes) {
+                // Create a simple bounding box for visualization
+                const boundingInfo = instance.rootMesh.getBoundingInfo();
+                const min = boundingInfo.boundingBox.minimumWorld;
+                const max = boundingInfo.boundingBox.maximumWorld;
+                
+                const width = max.x - min.x;
+                const height = max.y - min.y;
+                const depth = max.z - min.z;
+                const center = new BABYLON.Vector3(
+                    (min.x + max.x) / 2,
+                    (min.y + max.y) / 2,
+                    (min.z + max.z) / 2
+                );
+                
+                // Create visualization box
+                const debugBox = BABYLON.MeshBuilder.CreateBox(
+                    `debug_box_${obj.id}`,
+                    {
+                        width: width > 0 ? width : 1,
+                        height: height > 0 ? height : 1,
+                        depth: depth > 0 ? depth : 1
+                    },
+                    this.scene
+                );
+                
+                // Position box at center
+                debugBox.position = center;
+                debugBox.material = new BABYLON.StandardMaterial(`debug_mat_${obj.id}`, this.scene);
+                debugBox.material.alpha = 0.2;
+                debugBox.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+                debugBox.isPickable = false;
+                
+                // Store debug box reference
+                instance.debugBox = debugBox;
+            }
         }
         
         // Store the instance
@@ -208,6 +212,13 @@ class MapPlayEngine {
                 modelPath,      // Model file name
                 this.scene
             );
+
+            // Enable collisions on all meshes in the container
+            container.meshes.forEach(mesh => {
+                // Enable collisions
+                mesh.checkCollisions = true;
+            });
+
             console.log('Model loaded successfully:', modelPath, container);
             return container;
         } catch (error) {

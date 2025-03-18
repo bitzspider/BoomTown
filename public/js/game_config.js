@@ -23,9 +23,9 @@ const GameConfig = {
     player: {
         health: 100,
         height: 1.8, // Player height in units
-        moveSpeed: 0.15,
-        runSpeed: 0.3,
-        jumpForce: 0.2,
+        moveSpeed: 0.1,
+        runSpeed: 0.16,
+        jumpForce: 0.3,
         gravity: -0.01,
         hitCooldown: 1000, // 1 second cooldown between hits
         mouseSensitivity: 0.002,

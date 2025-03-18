@@ -20,18 +20,67 @@ var playerMesh;
 var ground;
 var groundMat;
 
-// Movement variables
-var moveSpeed = GameConfig.player.moveSpeed;
-var runSpeed = GameConfig.player.runSpeed;
-var jumpForce = GameConfig.player.jumpForce;
-var gravity = GameConfig.player.gravity;
+// Movement variables - initialized with placeholder values
+var moveSpeed = 0.015;  // Default fallback if GameConfig is not available
+var runSpeed = 0.03;    // Default fallback if GameConfig is not available
+var jumpForce = 0.2;
+var gravity = -0.01;
 var isJumping = false;
 var isFalling = false;
 var verticalVelocity = 0;
 var isGrounded = true;
 var isRunning = false;
 var lastWKeyTime = 0;
-var doubleTapThreshold = GameConfig.player.doubleTapThreshold; // ms
+var doubleTapThreshold = 250; // ms - time window to detect double tap
+var wKeyReleased = true; // Track if W key has been released between presses
+
+// Re-initialize from GameConfig when available
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("DOM loaded, checking for GameConfig availability");
+    
+    // Function to check GameConfig and initialize values
+    function initFromGameConfig() {
+        if (window.GameConfig) {
+            console.log("GameConfig found:", window.GameConfig);
+            
+            // Update movement values from GameConfig
+            moveSpeed = window.GameConfig.player.moveSpeed;
+            runSpeed = window.GameConfig.player.runSpeed;
+            jumpForce = window.GameConfig.player.jumpForce;
+            gravity = window.GameConfig.player.gravity;
+            doubleTapThreshold = window.GameConfig.player.doubleTapThreshold;
+            
+            console.log("Initialized movement variables from GameConfig:", {
+                moveSpeed, 
+                runSpeed,
+                jumpForce,
+                gravity,
+                doubleTapThreshold
+            });
+            
+            return true;
+        } else {
+            console.warn("GameConfig not available yet, will retry");
+            return false;
+        }
+    }
+    
+    // First attempt immediately
+    if (!initFromGameConfig()) {
+        // If not available, retry after a short delay
+        const checkInterval = setInterval(() => {
+            if (initFromGameConfig()) {
+                clearInterval(checkInterval);
+            }
+        }, 100);
+        
+        // Stop checking after 3 seconds to prevent infinite loops
+        setTimeout(() => {
+            clearInterval(checkInterval);
+            console.warn("GameConfig could not be loaded within timeout, using default values");
+        }, 3000);
+    }
+});
 
 // Key tracking
 const keys = {
@@ -321,15 +370,35 @@ function startEnemySpawning() {
 // Start the game
 async function startGame(selectedMapId) {
     try {
+        // Update movement speeds from config - ensure we're using the latest values
+        if (window.GameConfig) {
+            moveSpeed = window.GameConfig.player.moveSpeed;
+            runSpeed = window.GameConfig.player.runSpeed;
+            jumpForce = window.GameConfig.player.jumpForce;
+            gravity = window.GameConfig.player.gravity;
+            doubleTapThreshold = window.GameConfig.player.doubleTapThreshold;
+            
+            console.log("Game starting with movement configuration:", {
+                moveSpeed,
+                runSpeed,
+                jumpForce,
+                gravity,
+                doubleTapThreshold
+            });
+        } else {
+            console.warn("GameConfig not available at game start, using current values");
+        }
+        
         // Initialize map engine
         const mapEngine = new MapPlayEngine(scene);
         
         // Load map data
         const mapData = await mapEngine.loadMapData();
+        console.log("Loaded map data:", mapData);
         
-        // Use the map data directly since it's a single map
-        if (!mapData || mapData.id !== selectedMapId) {
-            throw new Error('Selected map not found');
+        // Validate map data
+        if (!mapData || !mapData.objects) {
+            throw new Error('Invalid map data received');
         }
         
         // Render the map
@@ -361,7 +430,7 @@ async function startGame(selectedMapId) {
         // Set game state
         gameStarted = true;
         gameOver = false;
-        isPaused = false;
+        gamePaused = false;
         
         // Setup input handlers after everything is initialized
         if (scene) {
@@ -700,23 +769,32 @@ function createScene(engine, canvas) {
     scene = new BABYLON.Scene(engine);
     debugLog("Scene created");
     
+    // Enable collisions for the scene but without physics
+    scene.collisionsEnabled = true;
+    scene.gravity = new BABYLON.Vector3(0, -9.81 / 60, 0);
+    debugLog("Scene collisions enabled");
+    
     // Make scene globally accessible
     window.scene = scene;
     
     // Create and position a free camera
     camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 1.6, 0), scene);
     camera.setTarget(BABYLON.Vector3.Zero());
-    camera.attachControl(canvas, true);
-    camera.speed = 0.5;
-    camera.angularSensibility = 2000;
+    camera.attachControl(canvas, true); camera.angularSensibility = 2000;
     camera.inertia = 0.5;
     
-    // Set up camera collision
+    // Set up camera collision - use a smaller, more accurate ellipsoid
     camera.checkCollisions = true;
-    camera.ellipsoid = new BABYLON.Vector3(0.5, 0.8, 0.5);
-    camera.ellipsoidOffset = new BABYLON.Vector3(0, 0.8, 0);
+    camera.ellipsoid = new BABYLON.Vector3(0.25, 0.5, 0.25);  // Even smaller collision box for better movement
+    camera.ellipsoidOffset = new BABYLON.Vector3(0, 0.5, 0); // Lower offset to match player height
     camera.applyGravity = true;
-    camera.collisionMask = 1;
+    
+    // Debug collision settings occasionally
+    scene.onBeforeRenderObservable.add(() => {
+        if (camera && Math.random() < 0.001) { // Only log very occasionally
+            debugLog("Camera position: " + JSON.stringify(camera.position) + ", Ellipsoid: " + JSON.stringify(camera.ellipsoid));
+        }
+    });
     
     // Disable camera movement with keys (we'll handle this ourselves)
     camera.inputs.removeByType("FreeCameraKeyboardMoveInput");
@@ -750,8 +828,19 @@ function createScene(engine, canvas) {
     groundMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.3);
     groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
     ground.material = groundMat;
-    
-    debugLog("Ground setup complete");
+
+    // Don't check horizontal collisions for ground, only vertical
+    ground.checkCollisions = false;  // Disable general collisions for ground
+    ground.isPickable = true;  // But keep it pickable
+
+    // Log ground properties for debugging
+    console.log("Ground mesh created:", {
+        name: ground.name,
+        checkCollisions: ground.checkCollisions,
+        isPickable: ground.isPickable,
+        position: ground.position,
+        boundingInfo: ground.getBoundingInfo()
+    });
     
     // Create walls
     createWalls();
@@ -779,40 +868,43 @@ function createWalls() {
         return;
     }
     
+    console.log("Creating walls with boundaries:", window.MAP_BOUNDARIES);
+    
     const wallHeight = 5;
     const wallThickness = 2;
+    const wallInset = 2; // Move walls inward by 2 units to prevent collision issues
     
     // North wall
     const northWall = BABYLON.MeshBuilder.CreateBox("northWall", {
-        width: window.MAP_BOUNDARIES.maxX - window.MAP_BOUNDARIES.minX,
+        width: window.MAP_BOUNDARIES.maxX - window.MAP_BOUNDARIES.minX - (wallInset * 2),
         height: wallHeight,
         depth: wallThickness
     }, scene);
-    northWall.position = new BABYLON.Vector3(0, wallHeight / 2, window.MAP_BOUNDARIES.maxZ);
+    northWall.position = new BABYLON.Vector3(0, wallHeight / 2, window.MAP_BOUNDARIES.maxZ - wallInset);
     
     // South wall
     const southWall = BABYLON.MeshBuilder.CreateBox("southWall", {
-        width: window.MAP_BOUNDARIES.maxX - window.MAP_BOUNDARIES.minX,
+        width: window.MAP_BOUNDARIES.maxX - window.MAP_BOUNDARIES.minX - (wallInset * 2),
         height: wallHeight,
         depth: wallThickness
     }, scene);
-    southWall.position = new BABYLON.Vector3(0, wallHeight / 2, window.MAP_BOUNDARIES.minZ);
+    southWall.position = new BABYLON.Vector3(0, wallHeight / 2, window.MAP_BOUNDARIES.minZ + wallInset);
     
     // East wall
     const eastWall = BABYLON.MeshBuilder.CreateBox("eastWall", {
         width: wallThickness,
         height: wallHeight,
-        depth: window.MAP_BOUNDARIES.maxZ - window.MAP_BOUNDARIES.minZ
+        depth: window.MAP_BOUNDARIES.maxZ - window.MAP_BOUNDARIES.minZ - (wallInset * 2)
     }, scene);
-    eastWall.position = new BABYLON.Vector3(window.MAP_BOUNDARIES.maxX, wallHeight / 2, 0);
+    eastWall.position = new BABYLON.Vector3(window.MAP_BOUNDARIES.maxX - wallInset, wallHeight / 2, 0);
     
     // West wall
     const westWall = BABYLON.MeshBuilder.CreateBox("westWall", {
         width: wallThickness,
         height: wallHeight,
-        depth: window.MAP_BOUNDARIES.maxZ - window.MAP_BOUNDARIES.minZ
+        depth: window.MAP_BOUNDARIES.maxZ - window.MAP_BOUNDARIES.minZ - (wallInset * 2)
     }, scene);
-    westWall.position = new BABYLON.Vector3(window.MAP_BOUNDARIES.minX, wallHeight / 2, 0);
+    westWall.position = new BABYLON.Vector3(window.MAP_BOUNDARIES.minX + wallInset, wallHeight / 2, 0);
     
     // Apply material to walls
     const wallMaterial = new BABYLON.StandardMaterial("wallMaterial", scene);
@@ -828,6 +920,16 @@ function createWalls() {
     southWall.checkCollisions = true;
     eastWall.checkCollisions = true;
     westWall.checkCollisions = true;
+    
+    // Log wall info for debugging
+    const walls = [northWall, southWall, eastWall, westWall];
+    walls.forEach(wall => {
+        console.log(`Wall created: ${wall.name}`, {
+            position: wall.position,
+            dimensions: wall.scaling,
+            boundingSphere: wall.getBoundingInfo().boundingSphere,
+        });
+    });
 }
 
 // Create some obstacles for testing
@@ -936,11 +1038,45 @@ function setupInputHandlers(canvas, scene) {
                     
                     // Double-tap W detection for running
                     if (key === 'w') {
-                        const now = Date.now();
-                        if (now - lastWKeyTime < doubleTapThreshold) {
-                            isRunning = true;
+                        const currentTime = new Date().getTime();
+                        
+                        // Only consider this a tap if W was released since last press
+                        if (wKeyReleased) {
+                            // Check if this is a second tap within threshold
+                            if (currentTime - lastWKeyTime < doubleTapThreshold) {
+                                // Double-tap detected - enable running
+                                isRunning = true;
+                                
+                                // Visual indicator for running
+                                const runIndicator = document.createElement('div');
+                                runIndicator.id = 'runIndicator';
+                                runIndicator.style.position = 'absolute';
+                                runIndicator.style.top = '10px';
+                                runIndicator.style.left = '50%';
+                                runIndicator.style.transform = 'translateX(-50%)';
+                                runIndicator.style.background = 'rgba(255,100,0,0.6)';
+                                runIndicator.style.color = 'white';
+                                runIndicator.style.padding = '5px 10px';
+                                runIndicator.style.borderRadius = '5px';
+                                runIndicator.style.fontWeight = 'bold';
+                                runIndicator.textContent = 'RUNNING';
+                                
+                                // Remove existing indicator if any
+                                const existingIndicator = document.getElementById('runIndicator');
+                                if (existingIndicator) {
+                                    existingIndicator.remove();
+                                }
+                                
+                                document.body.appendChild(runIndicator);
+                                console.log("Double-tap W detected! Running enabled. Time diff: " + (currentTime - lastWKeyTime) + "ms");
+                            }
+                            
+                            // Update last press time
+                            lastWKeyTime = currentTime;
                         }
-                        lastWKeyTime = now;
+                        
+                        // Mark that W key is currently down
+                        wKeyReleased = false;
                     }
                 }
                 // Handle ESC key for pause
@@ -960,7 +1096,19 @@ function setupInputHandlers(canvas, scene) {
                     
                     // Stop running when W is released
                     if (key === 'w') {
+                        // Mark W key as released for double-tap detection
+                        wKeyReleased = true;
+                        
+                        // Always disable running when W is released
                         isRunning = false;
+                        
+                        // Remove running indicator
+                        const runIndicator = document.getElementById('runIndicator');
+                        if (runIndicator) {
+                            runIndicator.remove();
+                        }
+                        
+                        console.log("W key released. Running stopped.");
                     }
                 }
                 break;
@@ -1044,7 +1192,7 @@ function setupInputHandlers(canvas, scene) {
 
 // Update player position and camera based on input
 function updatePlayer() {
-    if (!playerMesh) return;
+    if (!playerMesh || !camera) return;
     
     // Get forward and right directions based on camera rotation
     const forward = new BABYLON.Vector3(
@@ -1075,67 +1223,198 @@ function updatePlayer() {
         moveDirection.addInPlace(right);
     }
     
+    // Only log key states occasionally to avoid console spam
+    if (Math.random() < 0.01) {
+        console.log("Key states:", {
+            w: keys.w,
+            a: keys.a, 
+            s: keys.s, 
+            d: keys.d,
+            isRunning: isRunning,
+            moveDirection: moveDirection
+        });
+    }
+    
     // Normalize movement direction if not zero
     if (moveDirection.length() > 0) {
         moveDirection.normalize();
     }
     
-    // Apply movement speed
-    const currentSpeed = isRunning ? runSpeed : moveSpeed;
-    moveDirection.scaleInPlace(currentSpeed);
+    // DIRECT SPEED OVERRIDE - Apply extremely slow movement speed
+    // Ignore all other speed settings
+    const baseSpeed = GameConfig.player.moveSpeed;
+    const runningSpeed = GameConfig.player.runSpeed;
+    
+    // Set final movement speed
+    const finalSpeed = (isRunning && keys.w) ? runningSpeed : baseSpeed;
+    moveDirection.scaleInPlace(finalSpeed);
+    
+    // Log speeds occasionally
+    if (Math.random() < 0.005) { // Only log in ~0.5% of frames
+        console.log("Movement using GameConfig speeds:", {
+            isRunning, 
+            wPressed: keys.w,
+            finalSpeed, 
+            configMoveSpeed: GameConfig.player.moveSpeed, 
+            configRunSpeed: GameConfig.player.runSpeed
+        });
+    }
     
     // Apply gravity and jumping
     if (keys.space && isGrounded) {
         verticalVelocity = jumpForce;
         isGrounded = false;
-        debugLog("Jump initiated, vertical velocity: " + verticalVelocity);
+        console.log("Jump initiated, vertical velocity: " + verticalVelocity);
     }
     
     // Apply gravity
     verticalVelocity += gravity;
     
-    // Debug vertical movement occasionally
-    if (Math.random() < 0.01) { // Log only occasionally to avoid console spam
-        debugLog("Player Y position: " + playerMesh.position.y + ", Vertical velocity: " + verticalVelocity + ", Grounded: " + isGrounded);
+    // Print the current player position and movement info - but limit frequency
+    if (Math.random() < 0.005) { // Only log in ~0.5% of frames
+        console.log("Player movement:", { 
+            position: camera.position,
+            playerMeshPosition: playerMesh.position,
+            moveDirection: moveDirection,
+            verticalVelocity: verticalVelocity,
+            isGrounded: isGrounded
+        });
     }
     
-    // Update position
-    playerMesh.position.x += moveDirection.x;
-    playerMesh.position.z += moveDirection.z;
-    playerMesh.position.y += verticalVelocity;
+    // Store current position to check for collisions after movement
+    const oldPosition = camera.position.clone();
     
-    // Check for ground collision
-    if (playerMesh.position.y <= GameConfig.player.height / 2) {
-        playerMesh.position.y = GameConfig.player.height / 2;
+    // Apply horizontal movement without collision check against ground
+    const newPosition = oldPosition.clone();
+    newPosition.x += moveDirection.x;
+    newPosition.z += moveDirection.z;
+    
+    // Only check collisions with non-ground objects
+    const hasNonGroundCollision = checkNonGroundCollision(newPosition);
+    
+    if (!hasNonGroundCollision) {
+        // No non-ground collision, apply the movement
+        camera.position.x = newPosition.x;
+        camera.position.z = newPosition.z;
+    } else {
+        // Try moving along X and Z separately to slide along walls
+        let newPositionX = oldPosition.clone();
+        newPositionX.x += moveDirection.x;
+        
+        let newPositionZ = oldPosition.clone();
+        newPositionZ.z += moveDirection.z;
+        
+        // Try X movement first
+        if (!checkNonGroundCollision(newPositionX)) {
+            camera.position.x = newPositionX.x;
+        }
+        
+        // Then try Z movement
+        if (!checkNonGroundCollision(newPositionZ)) {
+            camera.position.z = newPositionZ.z;
+        }
+    }
+    
+    // Apply vertical movement separately
+    camera.position.y += verticalVelocity;
+    
+    // Check for ground collision - we consider the player grounded if very close to ground level
+    if (camera.position.y <= GameConfig.player.height / 2 + 0.1) {
+        camera.position.y = GameConfig.player.height / 2;
         verticalVelocity = 0;
         isGrounded = true;
-        // Log when player hits ground (this is noisy so for debugging only)
-        // debugLog("Player hit ground. Position reset to:", playerMesh.position.y);
     }
+    
+    // Update player mesh position to follow camera
+    playerMesh.position.x = camera.position.x;
+    playerMesh.position.z = camera.position.z;
+    playerMesh.position.y = camera.position.y - GameConfig.player.height / 2;
     
     // Enforce map boundaries
-    if (playerMesh.position.x < window.MAP_BOUNDARIES.minX + 1) {
-        playerMesh.position.x = window.MAP_BOUNDARIES.minX + 1;
-    } else if (playerMesh.position.x > window.MAP_BOUNDARIES.maxX - 1) {
-        playerMesh.position.x = window.MAP_BOUNDARIES.maxX - 1;
+    if (camera.position.x < window.MAP_BOUNDARIES.minX + 1) {
+        camera.position.x = window.MAP_BOUNDARIES.minX + 1;
+    } else if (camera.position.x > window.MAP_BOUNDARIES.maxX - 1) {
+        camera.position.x = window.MAP_BOUNDARIES.maxX - 1;
     }
     
-    if (playerMesh.position.z < window.MAP_BOUNDARIES.minZ + 1) {
-        playerMesh.position.z = window.MAP_BOUNDARIES.minZ + 1;
-    } else if (playerMesh.position.z > window.MAP_BOUNDARIES.maxZ - 1) {
-        playerMesh.position.z = window.MAP_BOUNDARIES.maxZ - 1;
+    if (camera.position.z < window.MAP_BOUNDARIES.minZ + 1) {
+        camera.position.z = window.MAP_BOUNDARIES.minZ + 1;
+    } else if (camera.position.z > window.MAP_BOUNDARIES.maxZ - 1) {
+        camera.position.z = window.MAP_BOUNDARIES.maxZ - 1;
     }
-    
-    // Update camera position to follow player
-    camera.position.x = playerMesh.position.x;
-    camera.position.z = playerMesh.position.z;
-    camera.position.y = playerMesh.position.y + GameConfig.player.height / 2;
     
     // Check for pickups
     checkPickups();
     
     // Update HUD
     updateHUD();
+}
+
+// Check for collisions with objects excluding the ground
+function checkNonGroundCollision(position) {
+    // Create the player's collision sphere
+    const playerRadius = Math.max(camera.ellipsoid.x, camera.ellipsoid.z) * 0.5; // Reduced from 0.7 to 0.5
+    const playerCenter = position.clone();
+    playerCenter.y += camera.ellipsoidOffset.y;
+    
+    // Maximum collision distance - don't check objects too far away
+    const MAX_COLLISION_DISTANCE = 2.5; // Only check collisions within 5 units
+    
+    // Check all meshes with collisions enabled
+    for (const mesh of scene.meshes) {
+        if (mesh.checkCollisions && mesh !== playerMesh && mesh !== ground && mesh.isVisible) {
+            try {
+                // Get bounding sphere of the mesh
+                const boundingInfo = mesh.getBoundingInfo();
+                
+                // Skip if boundingInfo is not available
+                if (!boundingInfo || !boundingInfo.boundingSphere) continue;
+                
+                const center = boundingInfo.boundingSphere.centerWorld;
+                const radius = boundingInfo.boundingSphere.radiusWorld;
+                
+                // Skip objects with too small or too large radius
+                if (radius <= 0.01 || radius > 20) continue; // Reduced from 100 to 20
+                
+                // Quick distance check - if far away, skip detailed collision
+                const dx = playerCenter.x - center.x;
+                const dz = playerCenter.z - center.z;
+                const horizontalDistSq = dx * dx + dz * dz;
+                
+                // If horizontally far away, skip collision check 
+                if (horizontalDistSq > (MAX_COLLISION_DISTANCE * MAX_COLLISION_DISTANCE)) {
+                    continue;
+                }
+                
+                // Simple sphere-sphere collision test
+                const dy = playerCenter.y - center.y;
+                const distance = Math.sqrt(horizontalDistSq + dy * dy);
+                
+                // Log collisions that are close but not quite colliding
+                if (distance < playerRadius + radius + 1 && distance >= playerRadius + radius - 0.1) {
+                    console.log(`Near collision with: ${mesh.name}`, {
+                        distance: distance,
+                        combinedRadius: playerRadius + radius,
+                        hDistance: Math.sqrt(horizontalDistSq)
+                    });
+                }
+                
+                if (distance < (playerRadius + radius - 0.1)) {
+                    console.log(`Collision with: ${mesh.name}`, {
+                        distance: distance,
+                        combinedRadius: playerRadius + radius,
+                        hDistance: Math.sqrt(horizontalDistSq)
+                    });
+                    return true;
+                }
+            } catch (error) {
+                console.error("Error in collision check for mesh: " + mesh.name, error);
+                continue;
+            }
+        }
+    }
+    
+    return false;
 }
 
 // Update HUD information

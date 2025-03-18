@@ -27,7 +27,7 @@ const GameConfig = {
         runSpeed: 0.16,
         jumpForce: 0.3,
         gravity: -0.01,
-        hitCooldown: 1000, // 1 second cooldown between hits
+        hitCooldown: 600, // 1 second cooldown between hits
         mouseSensitivity: 0.002,
         doubleTapThreshold: 300, // ms for double tap to run
     },

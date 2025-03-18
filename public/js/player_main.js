@@ -2435,116 +2435,78 @@ function showGameOverScreen() {
     advancedTexture.addControl(menuButton);
 }
 
-// Create ammo pickups in the game
+// Create ammo pickups in the game - No longer needed as we use model-based pickups from map data
 function createAmmoPickups() {
-    debugLog("Creating ammo pickups...");
-    
-    // Check if scene is defined
-    if (!scene) {
-        console.error("Scene is not defined in createAmmoPickups");
-        return;
-    }
-    
-    // Clear existing ammo pickups
-    ammoPickups = [];
-    
-    // Number of ammo pickups to create
-    const numPickups = 5;
-    
-    for (let i = 0; i < numPickups; i++) {
-        // Create random position within map boundaries
-        const x = Math.random() * (window.MAP_BOUNDARIES.maxX - window.MAP_BOUNDARIES.minX - 10) + window.MAP_BOUNDARIES.minX + 5;
-        const z = Math.random() * (window.MAP_BOUNDARIES.maxZ - window.MAP_BOUNDARIES.minZ - 10) + window.MAP_BOUNDARIES.minZ + 5;
-        
-        // Create ammo pickup mesh
-        const ammoPickup = BABYLON.MeshBuilder.CreateBox("ammoPickup_" + i, { width: 0.5, height: 0.5, depth: 0.5 }, scene);
-        ammoPickup.position = new BABYLON.Vector3(x, 0.25, z);
-        
-        // Create material for ammo pickup
-        const ammoMaterial = new BABYLON.StandardMaterial("ammoMaterial_" + i, scene);
-        ammoMaterial.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.8); // Blue color
-        ammoMaterial.emissiveColor = new BABYLON.Color3(0, 0, 0.5); // Slight glow
-        ammoPickup.material = ammoMaterial;
-        
-        // Add animation to make it rotate and hover
-        const animationKeys = [];
-        const frameRate = 30;
-        
-        // Rotation animation
-        const rotationAnimation = new BABYLON.Animation(
-            "rotationAnimation",
-            "rotation.y",
-            frameRate,
-            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-        );
-        
-        animationKeys.push({ frame: 0, value: 0 });
-        animationKeys.push({ frame: frameRate * 2, value: Math.PI * 2 });
-        rotationAnimation.setKeys(animationKeys);
-        
-        // Hover animation
-        const hoverAnimation = new BABYLON.Animation(
-            "hoverAnimation",
-            "position.y",
-            frameRate,
-            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-        );
-        
-        const hoverKeys = [];
-        hoverKeys.push({ frame: 0, value: 0.25 });
-        hoverKeys.push({ frame: frameRate, value: 0.5 });
-        hoverKeys.push({ frame: frameRate * 2, value: 0.25 });
-        hoverAnimation.setKeys(hoverKeys);
-        
-        // Add animations to mesh
-        ammoPickup.animations = [rotationAnimation, hoverAnimation];
-        
-        // Start the animation
-        scene.beginAnimation(ammoPickup, 0, frameRate * 2, true);
-        
-        // Add pickup property
-        ammoPickup.isPickup = true;
-        ammoPickup.pickupType = "ammo";
-        ammoPickup.ammoAmount = 10; // Amount of ammo to give
-        
-        // Add to ammo pickups array
-        ammoPickups.push({
-            mesh: ammoPickup,
-            active: true
-        });
-    }
+    // This function is now a no-op as ammo pickups come from map data with model_data.json attributes
+    debugLog("createAmmoPickups is deprecated - ammo pickups now come from map data");
+    // No need to create random ammo boxes anymore
 }
 
 // Check for pickups
 function checkPickups() {
     if (!playerMesh) return;
     
-    // Get all pickups in the scene
-    const pickups = scene.meshes.filter(mesh => mesh.isPickup);
+    // Get all pickups in the scene (both direct and child pickups)
+    const pickups = scene.meshes.filter(mesh => 
+        (mesh.isPickup && mesh.isVisible) || 
+        (mesh.metadata && mesh.metadata.parentId && 
+         scene.getMeshById(mesh.metadata.parentId) && 
+         scene.getMeshById(mesh.metadata.parentId).isPickup && 
+         scene.getMeshById(mesh.metadata.parentId).isVisible)
+    );
+    
+    // Debug pickup detection occasionally
+    if (Math.random() < 0.01) { // 1% chance each frame
+        debugLog(`Found ${pickups.length} visible pickups in scene`);
+    }
     
     // Check distance to each pickup
     for (let i = 0; i < pickups.length; i++) {
         const pickup = pickups[i];
+        
+        // If this is part of a parent, use parent's position
+        let checkPosition = pickup.position;
+        if (pickup.metadata && pickup.metadata.parentId) {
+            const parent = scene.getMeshById(pickup.metadata.parentId);
+            if (parent && parent.position) {
+                checkPosition = parent.position;
+            }
+        }
+        
         const distance = BABYLON.Vector3.Distance(
             playerMesh.position,
-            pickup.position
+            checkPosition
         );
         
         // If player is close enough, collect the pickup
-        if (distance < 2) {
+        // Use a slightly larger detection radius to make pickups easier to collect
+        if (distance < 2.5) {
             collectPickup(pickup);
+            // Break after collecting one pickup to prevent multiple collections
+            break;
         }
     }
 }
 
 // Collect pickup
 function collectPickup(pickup) {
-    if (pickup.pickupType === "ammo") {
+    // Determine if this is a child mesh and get the parent if needed
+    let parentMesh = pickup;
+    if (pickup.metadata && pickup.metadata.parentId) {
+        const parent = scene.getMeshById(pickup.metadata.parentId);
+        if (parent) {
+            parentMesh = parent;
+            debugLog(`Found parent mesh ${parent.id} for pickup ${pickup.id}`);
+        }
+    }
+    
+    if (pickup.pickupType === "ammo" || (parentMesh.pickupType === "ammo")) {
+        // Use ammo amount from the mesh that has it
+        const ammoAmount = pickup.ammoAmount || parentMesh.ammoAmount || 10;
+        
         // Add ammo to player
-        playerAmmo = Math.min(playerAmmo + pickup.ammoAmount, maxAmmo);
-        debugLog(`Picked up ${pickup.ammoAmount} ammo. Total: ${playerAmmo}`);
+        playerAmmo = Math.min(playerAmmo + ammoAmount, maxAmmo);
+        debugLog(`Picked up ${ammoAmount} ammo. Total: ${playerAmmo}`);
         
         // Update HUD
         updateHUD();
@@ -2552,8 +2514,65 @@ function collectPickup(pickup) {
         // Create pickup effect
         createPickupEffect(pickup.position);
         
-        // Remove pickup from scene
-        pickup.dispose();
+        // Determine if this pickup should respawn
+        const shouldRespawn = pickup.respawn || parentMesh.respawn || false;
+        const respawnTime = pickup.respawnTime || parentMesh.respawnTime || 10000;
+        const respawnDelay = pickup.respawnDelay || parentMesh.respawnDelay || 0;
+        
+        // Check if pickup should respawn
+        if (shouldRespawn) {
+            // Hide the pickup and all its child meshes
+            if (parentMesh.getChildMeshes) {
+                const allMeshes = [parentMesh, ...parentMesh.getChildMeshes()];
+                allMeshes.forEach(mesh => {
+                    mesh.isVisible = false;
+                });
+            } else {
+                parentMesh.isVisible = false;
+            }
+            
+            // Schedule respawn after respawn time
+            debugLog(`Ammo pickup will respawn in ${respawnTime}ms with ${respawnDelay}ms delay`);
+            
+            setTimeout(() => {
+                // Apply respawn delay if specified
+                if (respawnDelay > 0) {
+                    setTimeout(() => {
+                        // Make all meshes visible again
+                        if (parentMesh.getChildMeshes) {
+                            const allMeshes = [parentMesh, ...parentMesh.getChildMeshes()];
+                            allMeshes.forEach(mesh => {
+                                mesh.isVisible = true;
+                            });
+                        } else {
+                            parentMesh.isVisible = true;
+                        }
+                        debugLog("Ammo pickup respawned");
+                    }, respawnDelay);
+                } else {
+                    // Make all meshes visible immediately
+                    if (parentMesh.getChildMeshes) {
+                        const allMeshes = [parentMesh, ...parentMesh.getChildMeshes()];
+                        allMeshes.forEach(mesh => {
+                            mesh.isVisible = true;
+                        });
+                    } else {
+                        parentMesh.isVisible = true;
+                    }
+                    debugLog("Ammo pickup respawned");
+                }
+            }, respawnTime);
+        } else {
+            // Remove pickup from scene if not respawning
+            if (parentMesh.getChildMeshes) {
+                const allMeshes = [parentMesh, ...parentMesh.getChildMeshes()];
+                allMeshes.forEach(mesh => {
+                    mesh.dispose();
+                });
+            } else {
+                parentMesh.dispose();
+            }
+        }
     }
 }
 

@@ -8,7 +8,6 @@
     {
       "id": "container_military_1",
       "model": "Shipping Container.glb",
-      "collision": true,
       "position": {
         "x": 5,
         "y": 0,
@@ -28,7 +27,6 @@
     {
       "id": "barrier_concrete_1",
       "model": "Structure.glb",
-      "collision": true,
       "position": {
         "x": -5,
         "y": 0,
@@ -48,7 +46,6 @@
     {
       "id": "tree_pine_1",
       "model": "Tree.glb",
-      "collision": true,
       "position": {
         "x": 8,
         "y": 0,
@@ -68,7 +65,6 @@
     {
       "id": "Tree_02d5a87f-b537-432c-be95-d2946b734b06",
       "model": "Tree.glb",
-      "collision": true,
       "position": {
         "x": -4.992279064865368,
         "y": 0,
@@ -84,18 +80,94 @@
         "y": 1,
         "z": 1
       }
+    },
+    {
+      "id": "Box of bullets_a3e23fd6-f23d-4673-9c9b-a30a4564acd4",
+      "model": "Box of bullets.glb",
+      "position": {
+        "x": -3.1295319550303056,
+        "y": 0,
+        "z": -1.2110698876476853
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "Box of bullets_1a799834-0ff1-4170-bb65-93e36808b10a",
+      "model": "Box of bullets.glb",
+      "position": {
+        "x": 14.536071536088304,
+        "y": 0,
+        "z": 6.441571166813487
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "Box of bullets_5a975f9f-da2c-4634-9e9f-c259a6a6573f",
+      "model": "Box of bullets.glb",
+      "position": {
+        "x": -6.6230628462291214,
+        "y": 0,
+        "z": -15.973388654339605
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "Box of bullets_fbfbe596-0b90-45b9-9dfc-dce0f97cf6ae",
+      "model": "Box of bullets.glb",
+      "position": {
+        "x": -9.284215065087755,
+        "y": 0,
+        "z": 18.447421584188405
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
     }
   ],
   "camera": {
     "position": {
-      "x": 50.468427694245314,
-      "y": 69.96904281789875,
-      "z": 50.569465621240106
+      "x": 14.27492946968062,
+      "y": 50.28375394401084,
+      "z": -12.415291404324117
     },
     "target": {
-      "x": 0,
-      "y": 0,
-      "z": 0
+      "x": 0.8611590200223916,
+      "y": 0.6640303099405263,
+      "z": 1.077757702816666
     }
   },
   "lighting": {

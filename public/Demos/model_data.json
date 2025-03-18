@@ -1,0 +1,529 @@
+{
+    "models": [
+ 
+      {
+        "name": "Character_Enemy.glb",
+        "type": "enemy",
+        "description": "Standard enemy character model",
+        "health": 100,
+        "destructible": true,
+        "respawn": true,
+        "respawn_time": 10000,
+        "respawn_delay": 5000
+      },
+      {
+        "name": "Character_Hazmat.glb",
+        "type": "enemy",
+        "description": "Standard enemy character model",
+        "health": 100,
+        "destructible": true,
+        "respawn": true,
+        "respawn_time": 10000,
+        "respawn_delay": 5000
+      },
+      {
+        "name": "Character_Soldier.glb",
+        "type": "enemy",
+        "description": "Standard enemy character model",
+        "health": 100,
+        "destructible": true,
+        "respawn": true,
+        "respawn_time": 10000,
+        "respawn_delay": 5000
+      },
+  
+   
+      {
+        "name": "Box of bullets.glb",
+        "type": "loot",
+        "sub_type": "ammo",
+        "description": "Ammo box containing bullets",
+        "value": 10,
+        "respawn": true,
+        "respawn_time": 10000,
+        "respawn_delay": 5000
+      },
+      {
+        "name": "Bear Trap.glb",
+        "type": "loot",
+        "sub_type": "trap",
+        "description": "Bear trap that can damage the player",
+        "damage": 25,
+        "reset_time": 5000
+      },
+      {
+        "name": "Health.glb",
+        "type": "loot",
+        "sub_type": "health",
+        "description": "Health pickup that restores player health",
+        "value": 25
+      },
+      {
+        "name": "Key.glb",
+        "type": "loot",
+        "sub_type": "key",
+        "description": "Key that can unlock doors or containers",
+        "value": 0
+      },
+  
+    
+      {
+        "name": "Landmine.glb",
+        "type": "trap",
+        "description": "Mine that explodes when stepped on",
+        "damage": 75,
+        "explosion_radius": 3
+      },
+  
+      {
+        "name": "Brick Wall-GhSmk5IA5i.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Brick wall variant",
+        "destructible": false
+      },
+      {
+        "name": "Brick Wall.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Standard brick wall",
+        "destructible": false
+      },
+      {
+        "name": "Debris Papers-MujITy1NRR.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Paper debris variant",
+        "destructible": false
+      },
+      {
+        "name": "Debris Papers.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Standard paper debris",
+        "destructible": false
+      },
+      {
+        "name": "Debris Pile.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Pile of assorted debris",
+        "destructible": false
+      },
+      {
+        "name": "Dumpster.glb",
+        "type": "object",
+        "sub_type": "container",
+        "description": "Dumpster that may contain loot",
+        "destructible": false,
+        "can_contain_loot": true
+      },
+      {
+        "name": "Exploding Barrel Spil.glb",
+        "type": "object",
+        "sub_type": "hazard",
+        "description": "Barrel that has already spilled",
+        "destructible": false
+      },
+      {
+        "name": "Exploding Barrel.glb",
+        "type": "object",
+        "sub_type": "hazard",
+        "description": "Barrel that can explode when shot",
+        "destructible": true,
+        "explosion_radius": 5,
+        "explosion_damage": 75
+      },
+      {
+        "name": "Fence Long.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Long fence section",
+        "destructible": false
+      },
+      {
+        "name": "Fence.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Standard fence section",
+        "destructible": false
+      },
+      {
+        "name": "Gas Can.glb",
+        "type": "object",
+        "sub_type": "hazard",
+        "description": "Can of flammable gas",
+        "destructible": true,
+        "explosion_radius": 3,
+        "explosion_damage": 40
+      },
+      {
+        "name": "Gas Tank.glb",
+        "type": "object",
+        "sub_type": "hazard",
+        "description": "Large tank of flammable gas",
+        "destructible": true,
+        "explosion_radius": 6,
+        "explosion_damage": 90
+      },
+      {
+        "name": "Metal Fence.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Sturdy metal fence",
+        "destructible": false
+      },
+      {
+        "name": "Pallet Broken.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Broken wooden pallet",
+        "destructible": false
+      },
+      {
+        "name": "Pallet.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Intact wooden pallet",
+        "destructible": true
+      },
+      {
+        "name": "Pipes.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Industrial pipes",
+        "destructible": false
+      },
+      {
+        "name": "Sack Trench Small.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Small sandbag trench",
+        "destructible": false
+      },
+      {
+        "name": "Sack Trench.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Standard sandbag trench",
+        "destructible": false
+      },
+      {
+        "name": "Shipping Container Structure.glb",
+        "type": "object",
+        "sub_type": "structure",
+        "description": "Large structure made of shipping containers",
+        "destructible": false
+      },
+      {
+        "name": "Shipping Container.glb",
+        "type": "object",
+        "sub_type": "container",
+        "description": "Standard shipping container",
+        "destructible": false,
+        "can_contain_loot": true
+      },
+      {
+        "name": "Short Cannon.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Short decorative cannon",
+        "destructible": false
+      },
+      {
+        "name": "Sign.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Street sign",
+        "destructible": true
+      },
+      {
+        "name": "Sofa Small.glb",
+        "type": "object",
+        "sub_type": "furniture",
+        "description": "Small sofa",
+        "destructible": false
+      },
+      {
+        "name": "Sofa.glb",
+        "type": "object",
+        "sub_type": "furniture",
+        "description": "Standard sofa",
+        "destructible": false
+      },
+      {
+        "name": "Street Light.glb",
+        "type": "object",
+        "sub_type": "light",
+        "description": "Street light that provides illumination",
+        "destructible": true,
+        "light_radius": 10,
+        "light_intensity": 1.5
+      },
+      {
+        "name": "Structure-oUkHO0kbQt.glb",
+        "type": "object",
+        "sub_type": "structure",
+        "description": "Building structure variant",
+        "destructible": false
+      },
+      {
+        "name": "Structure-PB5Cd3dL24.glb",
+        "type": "object",
+        "sub_type": "structure",
+        "description": "Building structure variant",
+        "destructible": false
+      },
+      {
+        "name": "Structure.glb",
+        "type": "object",
+        "sub_type": "structure",
+        "description": "Standard building structure",
+        "destructible": false
+      },
+      {
+        "name": "Tank.glb",
+        "type": "object",
+        "sub_type": "vehicle",
+        "description": "Military tank",
+        "destructible": true,
+        "health": 1000,
+        "speed": 1.0,
+        "turn_speed": 0.5
+      },
+      {
+        "name": "Tires.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Stack of tires",
+        "destructible": false
+      },
+      {
+        "name": "Traffic Cone.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Traffic cone",
+        "destructible": true
+      },
+      {
+        "name": "Trash Container Open.glb",
+        "type": "object",
+        "sub_type": "container",
+        "description": "Open trash container",
+        "destructible": false,
+        "can_contain_loot": true
+      },
+      {
+        "name": "Tree-1BkD9JnKrE.glb",
+        "type": "object",
+        "sub_type": "vegetation",
+        "description": "Tree variant",
+        "destructible": false
+      },
+      {
+        "name": "Tree-i4QMw4L64D.glb",
+        "type": "object",
+        "sub_type": "vegetation",
+        "description": "Tree variant",
+        "destructible": false
+      },
+      {
+        "name": "Tree-QeYQEpgPcC.glb",
+        "type": "object",
+        "sub_type": "vegetation",
+        "description": "Tree variant",
+        "destructible": false
+      },
+      {
+        "name": "Tree.glb",
+        "type": "object",
+        "sub_type": "vegetation",
+        "description": "Standard tree",
+        "destructible": false
+      },
+      {
+        "name": "Water Tank Floor.glb",
+        "type": "object",
+        "sub_type": "decoration",
+        "description": "Base of a water tank",
+        "destructible": false
+      },
+      {
+        "name": "Water Tank.glb",
+        "type": "object",
+        "sub_type": "container",
+        "description": "Large water storage tank",
+        "destructible": false
+      },
+      {
+        "name": "Wood Planks.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Stack of wooden planks",
+        "destructible": true
+      },
+      {
+        "name": "Barrier Fixed.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Fixed concrete barrier",
+        "destructible": false
+      },
+      {
+        "name": "Barrier Large.glb",
+        "type": "object",
+        "sub_type": "barrier",
+        "description": "Large concrete barrier",
+        "destructible": false
+      },
+  
+     
+      {
+        "name": "Fire Grenade.glb",
+        "type": "weapon",
+        "sub_type": "throwable",
+        "description": "Grenade that creates a fire area",
+        "damage": 30,
+        "effect_radius": 3,
+        "effect_duration": 8000
+      },
+      {
+        "name": "Grenade Launcher.glb",
+        "type": "weapon",
+        "sub_type": "launcher",
+        "description": "Launcher that fires explosive grenades",
+        "damage": 75,
+        "ammo_capacity": 5,
+        "fire_rate": 1.5,
+        "primitives": "grenadelauncher"
+      },
+      {
+        "name": "Grenade.glb",
+        "type": "weapon",
+        "sub_type": "throwable",
+        "description": "Standard explosive grenade",
+        "damage": 70,
+        "effect_radius": 4
+      },
+      {
+        "name": "Knife-NNzzvlGXzO.glb",
+        "type": "weapon",
+        "sub_type": "melee",
+        "description": "Knife variant for close combat",
+        "damage": 25,
+        "attack_speed": 1.2,
+        "primitives": "knife,1"
+      },
+      {
+        "name": "Knife.glb",
+        "type": "weapon",
+        "sub_type": "melee",
+        "description": "Standard knife for close combat",
+        "damage": 25,
+        "attack_speed": 1.0,
+        "primitives": "knife,2"
+      },
+      {
+        "name": "Pistol.glb",
+        "type": "weapon",
+        "sub_type": "handgun",
+        "description": "Standard pistol",
+        "damage": 15,
+        "ammo_capacity": 12,
+        "fire_rate": 0.5,
+        "primitives": "pistol"
+      },
+      {
+        "name": "Revolver Small.glb",
+        "type": "weapon",
+        "sub_type": "handgun",
+        "description": "Compact revolver",
+        "damage": 25,
+        "ammo_capacity": 6,
+        "fire_rate": 0.8,
+        "primitives": "revolver,small"
+      },
+      {
+        "name": "Revolver.glb",
+        "type": "weapon",
+        "sub_type": "handgun",
+        "description": "Standard revolver",
+        "damage": 30,
+        "ammo_capacity": 6,
+        "fire_rate": 0.7,
+        "primitives": "revolver"
+      },
+      {
+        "name": "Rocket Launcher.glb",
+        "type": "weapon",
+        "sub_type": "launcher",
+        "description": "Heavy launcher that fires explosive rockets",
+        "damage": 100,
+        "ammo_capacity": 1,
+        "fire_rate": 2.0,
+        "explosion_radius": 8,
+        "primitives": "rocketlauncher"
+      },
+      {
+        "name": "Shotgun.glb",
+        "type": "weapon",
+        "sub_type": "shotgun",
+        "description": "Standard shotgun",
+        "damage": 60,
+        "ammo_capacity": 8,
+        "fire_rate": 1.0,
+        "spread": 15,
+        "primitives": "shotgun"
+      },
+      {
+        "name": "Shovel.glb",
+        "type": "weapon",
+        "sub_type": "melee",
+        "description": "Shovel that can be used as a melee weapon",
+        "damage": 35,
+        "attack_speed": 1.5,
+        "primitives": "shovel"
+      },
+      {
+        "name": "Smg.glb",
+        "type": "weapon",
+        "sub_type": "automatic",
+        "description": "Submachine gun with rapid fire",
+        "damage": 10,
+        "ammo_capacity": 30,
+        "fire_rate": 0.1,
+        "primitives": "smg"
+      },
+      {
+        "name": "Sniper-8sfc8FTChN.glb",
+        "type": "weapon",
+        "sub_type": "sniper",
+        "description": "Sniper rifle variant with high damage",
+        "damage": 85,
+        "ammo_capacity": 5,
+        "fire_rate": 1.5,
+        "primitives": "sniper"
+      },
+      {
+        "name": "Sniper.glb",
+        "type": "weapon",
+        "sub_type": "sniper",
+        "description": "Standard sniper rifle",
+        "damage": 80,
+        "ammo_capacity": 5,
+        "fire_rate": 1.5,
+        "primitives": "sniper"
+      },
+      {
+        "name": "Ak47.glb",
+        "type": "weapon",
+        "sub_type": "automatic",
+        "description": "Assault rifle with high damage and rate of fire",
+        "damage": 25,
+        "ammo_capacity": 30,
+        "fire_rate": 0.15,
+        "primitives": "ak47"
+      }
+    ]
+  }
+  

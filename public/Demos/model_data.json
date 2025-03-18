@@ -10,7 +10,9 @@
         "destructible": true,
         "respawn": true,
         "respawn_time": 10000,
-        "respawn_delay": 5000
+        "respawn_delay": 5000,
+        "start_mode": "PATROL",
+        "primitives": "character,ak47"
       },
       {
         "name": "Character_Hazmat.glb",
@@ -21,7 +23,9 @@
         "destructible": true,
         "respawn": true,
         "respawn_time": 10000,
-        "respawn_delay": 5000
+        "respawn_delay": 5000,
+        "start_mode": "PATROL",
+        "primitives": "character,ak47"
       },
       {
         "name": "Character_Soldier.glb",
@@ -32,7 +36,9 @@
         "destructible": true,
         "respawn": true,
         "respawn_time": 10000,
-        "respawn_delay": 5000
+        "respawn_delay": 5000,
+        "start_mode": "PATROL",
+        "primitives": "character,ak47"
       },
   
    

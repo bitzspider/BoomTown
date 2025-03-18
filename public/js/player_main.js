@@ -2627,15 +2627,82 @@ function spawnEnemy() {
         return;
     }
     
-    // Get random spawn point
-    const spawnPoint = getRandomSpawnPoint();
-    debugLog("Spawning enemy at: " + JSON.stringify(spawnPoint));
-    
+    // Load and check for enemy characters from map data
+    let mapEngine = new MapPlayEngine(scene);
+    mapEngine.loadMapData().then(mapData => {
+        if (!mapData || !mapData.objects) {
+            debugLog("Invalid map data in spawnEnemy", true);
+            return;
+        }
+        
+        // Filter for enemy characters in the map
+        const enemyObjects = mapData.objects.filter(obj => obj.model === "Character_Enemy.glb");
+        
+        if (enemyObjects.length === 0) {
+            // No enemies in map, fall back to random spawn point
+            debugLog("No enemies found in map data, using random spawn point");
+            const spawnPoint = getRandomSpawnPoint();
+            spawnEnemyAtPosition(spawnPoint);
+        } else {
+            // Spawn enemies at the positions defined in the map
+            debugLog(`Found ${enemyObjects.length} enemies in map data`);
+            
+            // Find all map placeholders for enemies (including ones that might have different IDs)
+            const enemyPlaceholders = scene.meshes.filter(mesh => 
+                mesh.name && (
+                    mesh.name.includes("Character_Enemy") || 
+                    (mesh.name.includes("enemy") && !mesh.name.includes("enemy_")) || 
+                    enemyObjects.some(obj => obj.id === mesh.name || obj.id === mesh.id)
+                )
+            );
+            
+            // Remove all enemy placeholders to prevent duplicates
+            if (enemyPlaceholders.length > 0) {
+                debugLog(`Found ${enemyPlaceholders.length} enemy placeholders to remove`);
+                
+                enemyPlaceholders.forEach(mesh => {
+                    debugLog(`Removing enemy placeholder: ${mesh.name}`);
+                    
+                    // First, dispose all child meshes
+                    if (typeof mesh.getChildMeshes === 'function') {
+                        const childMeshes = mesh.getChildMeshes();
+                        childMeshes.forEach(childMesh => {
+                            childMesh.dispose(false, true);
+                        });
+                    }
+                    
+                    // Then dispose the root mesh itself
+                    mesh.dispose(false, true);
+                });
+            }
+            
+            // Now spawn new enemies at the positions from map data
+            enemyObjects.forEach(enemyObj => {
+                const position = {
+                    x: enemyObj.position.x,
+                    y: enemyObj.position.y || 0,
+                    z: enemyObj.position.z
+                };
+                
+                debugLog(`Spawning enemy from map at position: ${JSON.stringify(position)}`);
+                spawnEnemyAtPosition(position);
+            });
+        }
+    }).catch(error => {
+        debugLog(`Error loading map data for enemies: ${error}`, true);
+        // Fall back to random spawn as a backup
+        const spawnPoint = getRandomSpawnPoint();
+        spawnEnemyAtPosition(spawnPoint);
+    });
+}
+
+// Helper function to spawn an enemy at a specific position
+function spawnEnemyAtPosition(position) {
     // Generate a unique ID for this enemy
     const enemyId = 'enemy_' + Date.now();
     
     // Load the enemy model using the controller
-    loadEnemyModel(scene, new BABYLON.Vector3(spawnPoint.x, 0, spawnPoint.z), null, null, (enemyData) => {
+    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), null, null, (enemyData) => {
         // Store the enemy data with the controller's ID
         const enemyId = enemyData.id;
         enemies[enemyId] = {

@@ -331,6 +331,17 @@ function updateEnemyState(enemyId) {
     // Check if player is within chase range
     const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detectionRange);
     
+    // Get distance to player
+    const playerPos = getPlayerPosition();
+    if (!playerPos) return;
+    
+    const dx = playerPos.x - enemy.transform.position.x;
+    const dz = playerPos.z - enemy.transform.position.z;
+    const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
+    
+    // Check if enemy is close enough to attack
+    const isInAttackRange = distanceToPlayer <= GameConfig.enemies.attackRange;
+    
     // Check if enemy is in aggro mode (was hit recently)
     const timeSinceLastHit = enemy.lastHitTime ? currentTime - enemy.lastHitTime : Infinity;
     const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || GameConfig.enemies.aggroTime);
@@ -362,12 +373,37 @@ function updateEnemyState(enemyId) {
         case "CHASE":
             if (!shouldChasePlayer) {
                 setEnemyState(enemyId, "PATROL");
+            } else if (isInAttackRange) {
+                // Transition to attack mode when close enough
+                setEnemyState(enemyId, "ATTACK");
             } else {
                 updateEnemyChase(enemyId);
                 
                 // Occasionally shoot at player when in chase mode
                 if (Math.random() < GameConfig.enemies.shootProbability) {
                     enemyShootAtPlayer(enemyId);
+                }
+            }
+            break;
+        case "ATTACK":
+            if (!shouldChasePlayer) {
+                setEnemyState(enemyId, "PATROL");
+            } else if (distanceToPlayer > GameConfig.enemies.attackRange * 1.5) {
+                // If player gets too far away, switch back to chase mode
+                setEnemyState(enemyId, "CHASE");
+            } else {
+                // Update attack behavior
+                updateEnemyAttack(enemyId);
+                
+                // Shoot more frequently in attack mode
+                if (Math.random() < GameConfig.enemies.attackShootProbability) {
+                    // Potentially use burst fire
+                    if (GameConfig.enemies.burstFireEnabled && Math.random() < 0.3) {
+                        // Start burst fire sequence
+                        startBurstFire(enemyId);
+                    } else {
+                        enemyShootAtPlayer(enemyId);
+                    }
                 }
             }
             break;
@@ -378,9 +414,8 @@ function updateEnemyState(enemyId) {
             // Do nothing, enemy is dead
             break;
         default:
-            console.warn(`Unknown enemy state: ${enemy.state}`);
-            setEnemyState(enemyId, "IDLE");
-            break;
+            debugLog(`Unknown enemy state: ${enemy.state}`, true);
+            setEnemyState(enemyId, "PATROL");
     }
 }
 
@@ -2089,4 +2124,211 @@ function generateSearchPath(startPos, targetPos) {
     path.push({ x: targetPos.x, z: targetPos.z });
     
     return path;
+}
+
+// Start a burst fire sequence
+function startBurstFire(enemyId) {
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy) return;
+    
+    // Fire first shot immediately
+    enemyShootAtPlayer(enemyId);
+    
+    // Set up remaining shots in the burst
+    let shotsRemaining = GameConfig.enemies.burstShotCount - 1;
+    
+    const burstInterval = setInterval(() => {
+        if (shotsRemaining > 0 && enemy && enemy.state === "ATTACK") {
+            enemyShootAtPlayer(enemyId);
+            shotsRemaining--;
+        } else {
+            clearInterval(burstInterval);
+        }
+    }, GameConfig.enemies.burstFireInterval);
+}
+
+// Update enemy attack behavior - smarter AI movement
+function updateEnemyAttack(enemyId) {
+    const enemy = loadedEnemies[enemyId];
+    if (!enemy) return;
+    
+    // Get player position
+    const playerPosition = getPlayerPosition();
+    if (!playerPosition) return;
+    
+    // Calculate direction and distance to player
+    const dx = playerPosition.x - enemy.transform.position.x;
+    const dz = playerPosition.z - enemy.transform.position.z;
+    const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
+    
+    // Normalize direction to player
+    const dirToPlayer = new YUKA.Vector3(dx, 0, dz).normalize();
+    
+    // Initialize or update decision time
+    if (!enemy.lastAttackDecision) {
+        enemy.lastAttackDecision = Date.now();
+        enemy.attackStrategy = "approach"; // Default strategy
+    }
+    
+    // Make new decisions periodically
+    const currentTime = Date.now();
+    if (currentTime - enemy.lastAttackDecision > GameConfig.enemies.attackModeDecisionTime) {
+        // Update attack strategy based on distance
+        if (distanceToPlayer < GameConfig.enemies.minAttackDistance) {
+            // Too close, back up
+            enemy.attackStrategy = "retreat";
+        } else if (distanceToPlayer > GameConfig.enemies.maxAttackDistance) {
+            // Too far, approach
+            enemy.attackStrategy = "approach";
+        } else {
+            // Good distance, choose between strafing or random movement
+            enemy.attackStrategy = Math.random() < 0.6 ? "strafe" : "random";
+        }
+        
+        // Occasionally decide to dodge
+        if (Math.random() < GameConfig.enemies.dodgeFrequency * 10) { // Higher chance on decision points
+            enemy.attackStrategy = "dodge";
+            
+            // Choose dodge direction (left, right, back)
+            const dodgeDirections = ["left", "right", "back"];
+            enemy.dodgeDirection = dodgeDirections[Math.floor(Math.random() * dodgeDirections.length)];
+        }
+        
+        // Update decision timestamp
+        enemy.lastAttackDecision = currentTime;
+        
+        debugLog(`Enemy ${enemyId} chose attack strategy: ${enemy.attackStrategy}`);
+    }
+    
+    // Calculate movement direction based on current attack strategy
+    let moveDirection = new YUKA.Vector3(0, 0, 0);
+    
+    switch (enemy.attackStrategy) {
+        case "approach":
+            // Move toward player but maintain minimum distance
+            moveDirection.copy(dirToPlayer);
+            break;
+            
+        case "retreat":
+            // Move away from player
+            moveDirection.copy(dirToPlayer).multiplyScalar(-1);
+            break;
+            
+        case "strafe":
+            // Circle strafe around player
+            if (!enemy.strafeDirection) {
+                // Randomly choose strafe direction (left or right)
+                enemy.strafeDirection = Math.random() < 0.5 ? "left" : "right";
+            }
+            
+            // Create perpendicular vector for strafing
+            if (enemy.strafeDirection === "left") {
+                moveDirection.set(-dirToPlayer.z, 0, dirToPlayer.x);
+            } else {
+                moveDirection.set(dirToPlayer.z, 0, -dirToPlayer.x);
+            }
+            
+            // Mix in a bit of approach/retreat to maintain optimal distance
+            if (distanceToPlayer > GameConfig.enemies.maxAttackDistance) {
+                // Add some approach vector
+                moveDirection.add(dirToPlayer.clone().multiplyScalar(0.5));
+                moveDirection.normalize();
+            } else if (distanceToPlayer < GameConfig.enemies.minAttackDistance) {
+                // Add some retreat vector
+                moveDirection.add(dirToPlayer.clone().multiplyScalar(-0.5));
+                moveDirection.normalize();
+            }
+            break;
+            
+        case "dodge":
+            // Execute quick dodge movement
+            if (enemy.dodgeDirection === "left") {
+                moveDirection.set(-dirToPlayer.z, 0, dirToPlayer.x);
+            } else if (enemy.dodgeDirection === "right") {
+                moveDirection.set(dirToPlayer.z, 0, -dirToPlayer.x);
+            } else { // "back"
+                moveDirection.copy(dirToPlayer).multiplyScalar(-1);
+            }
+            
+            // Use higher speed for dodging
+            moveDirection.multiplyScalar(1.5);
+            break;
+            
+        case "random":
+            // Move in a somewhat random direction, but generally keep facing player
+            if (!enemy.randomMoveTarget || Math.random() < 0.05) {
+                // Create a new random move target periodically
+                const angle = Math.random() * Math.PI * 2;
+                const distance = GameConfig.enemies.minDodgeDistance + 
+                                Math.random() * (GameConfig.enemies.maxDodgeDistance - GameConfig.enemies.minDodgeDistance);
+                
+                // Calculate random position around player
+                enemy.randomMoveTarget = new YUKA.Vector3(
+                    playerPosition.x + Math.cos(angle) * distance,
+                    0,
+                    playerPosition.z + Math.sin(angle) * distance
+                );
+            }
+            
+            // Move toward random point
+            moveDirection.set(
+                enemy.randomMoveTarget.x - enemy.transform.position.x,
+                0,
+                enemy.randomMoveTarget.z - enemy.transform.position.z
+            ).normalize();
+            break;
+    }
+    
+    // Get speed based on strategy
+    let speed = CharacterEnemyConfig.getSpeedForMode("ATTACK");
+    if (enemy.attackStrategy === "dodge") {
+        speed *= 1.5; // Faster for dodging
+    }
+    
+    // Set velocity
+    const moveStep = speed * engine.getDeltaTime() / 1000;
+    
+    // Store previous position for collision detection
+    const previousPosition = {
+        x: enemy.transform.position.x,
+        z: enemy.transform.position.z
+    };
+    
+    // Update position
+    enemy.vehicle.position.x += moveDirection.x * moveStep;
+    enemy.vehicle.position.z += moveDirection.z * moveStep;
+    
+    // Sync with Babylon mesh
+    enemy.transform.position.x = enemy.vehicle.position.x;
+    enemy.transform.position.z = enemy.vehicle.position.z;
+    
+    // Always face the player regardless of movement direction
+    if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+        // Calculate angle to face player
+        const targetAngle = Math.atan2(dirToPlayer.x, dirToPlayer.z) + Math.PI;
+        const currentAngle = enemy.root.rotation.y;
+        
+        // Smooth rotation
+        let angleDiff = targetAngle - currentAngle;
+        // Normalize angle difference to [-PI, PI]
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        
+        // Apply smooth rotation - faster rotation in attack mode
+        const rotationSpeed = enemy.rotationSpeed * 1.5;
+        const newRotation = currentAngle + angleDiff * rotationSpeed;
+        enemy.root.rotation.y = newRotation;
+    }
+    
+    // Check for collisions
+    if (checkEnemyCollisions(enemy)) {
+        // Restore previous position
+        enemy.vehicle.position.x = previousPosition.x;
+        enemy.vehicle.position.z = previousPosition.z;
+        enemy.transform.position.x = previousPosition.x;
+        enemy.transform.position.z = previousPosition.z;
+        
+        // Change strategy if we hit something
+        enemy.lastAttackDecision = 0; // Force new decision next frame
+    }
 }

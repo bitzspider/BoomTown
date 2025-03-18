@@ -59,6 +59,7 @@ class CharacterEnemyConfig {
             case this.MODES.PATROL:
                 return "CharacterArmature|Walk";
             case this.MODES.CHASE:
+                return "CharacterArmature|Run";
             case this.MODES.ATTACK:
                 return "CharacterArmature|Run";
             case this.MODES.DEATH:
@@ -77,9 +78,9 @@ class CharacterEnemyConfig {
             case this.MODES.PATROL:
                 return 2;
             case this.MODES.CHASE:
-                return 4;
+                return 2.5;
             case this.MODES.ATTACK:
-                return 3;
+                return 2;
             case this.MODES.DEATH:
                 return 0;
             case this.MODES.HIT_REACT:

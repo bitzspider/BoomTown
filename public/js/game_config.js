@@ -59,8 +59,22 @@ const GameConfig = {
         chaseSpeed: 4.0, // Faster when chasing
         rotationSpeed: 0.15,
         
+        // Attack mode settings
+        attackRange: 10, // Distance at which enemy transitions from CHASE to ATTACK
+        dodgeFrequency: 0.03, // Probability to dodge per frame in ATTACK mode
+        minDodgeDistance: 3, // Minimum distance to dodge
+        maxDodgeDistance: 6, // Maximum distance to dodge
+        circleStrafing: true, // Whether enemy strafes around player in ATTACK mode
+        minAttackDistance: 5, // Min distance enemy tries to maintain in ATTACK mode
+        maxAttackDistance: 8, // Max distance enemy tries to maintain in ATTACK mode
+        attackModeDecisionTime: 1000, // ms between attack mode decision updates
+        
         // Shooting settings
         shootProbability: 0.01, // 1% chance per frame to shoot when in chase mode
+        attackShootProbability: 0.03, // 3% chance per frame to shoot when in attack mode
+        burstFireEnabled: true, // Whether enemy can fire in bursts
+        burstShotCount: 3, // Number of shots in a burst
+        burstFireInterval: 150, // ms between burst shots
         
         // Hitbox dimensions
         headHitbox: {

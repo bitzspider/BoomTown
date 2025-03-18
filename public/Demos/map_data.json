@@ -156,6 +156,25 @@
         "y": 1,
         "z": 1
       }
+    },
+    {
+      "id": "Character_Enemy_dd4e0676-f64e-4b10-b555-8135f47bc623",
+      "model": "Character_Enemy.glb",
+      "position": {
+        "x": -24.535403192957375,
+        "y": 0,
+        "z": 11.270242333714611
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
     }
   ],
   "camera": {

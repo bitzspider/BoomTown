@@ -3,7 +3,8 @@
  
       {
         "name": "Character_Enemy.glb",
-        "type": "enemy",
+        "type": "character",
+        "sub_type": "enemy",
         "description": "Standard enemy character model",
         "health": 100,
         "destructible": true,
@@ -13,7 +14,8 @@
       },
       {
         "name": "Character_Hazmat.glb",
-        "type": "enemy",
+        "type": "character",
+        "sub_type": "enemy",
         "description": "Standard enemy character model",
         "health": 100,
         "destructible": true,
@@ -23,7 +25,8 @@
       },
       {
         "name": "Character_Soldier.glb",
-        "type": "enemy",
+        "type": "character",
+        "sub_type": "enemy",
         "description": "Standard enemy character model",
         "health": 100,
         "destructible": true,

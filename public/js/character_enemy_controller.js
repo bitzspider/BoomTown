@@ -144,6 +144,46 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
     
     console.log(`Loading enemy model: ${model}, type: ${modelType}`);
     
+    // Create configuration object with default values from GameConfig
+    let enemyConfig = {
+        // Clone default settings to avoid modifying the original
+        health: GameConfig.enemies.health,
+        idleDuration: GameConfig.enemies.idleDuration,
+        moveSpeed: GameConfig.enemies.moveSpeed,
+        rotationSpeed: GameConfig.enemies.rotationSpeed,
+        chaseSpeed: GameConfig.enemies.chaseSpeed,
+        detectionRange: GameConfig.enemies.detectionRange,
+        aggroTime: GameConfig.enemies.aggroTime,
+        deathAnimDuration: GameConfig.enemies.deathAnimDuration,
+        hitReactionDuration: GameConfig.enemies.hitReactionDuration,
+        searchDuration: GameConfig.enemies.searchDuration,
+        attackRange: GameConfig.enemies.attackRange,
+        dodgeFrequency: GameConfig.enemies.dodgeFrequency,
+        minDodgeDistance: GameConfig.enemies.minDodgeDistance,
+        maxDodgeDistance: GameConfig.enemies.maxDodgeDistance,
+        circleStrafing: GameConfig.enemies.circleStrafing,
+        minAttackDistance: GameConfig.enemies.minAttackDistance,
+        maxAttackDistance: GameConfig.enemies.maxAttackDistance,
+        attackModeDecisionTime: GameConfig.enemies.attackModeDecisionTime,
+        shootProbability: GameConfig.enemies.shootProbability,
+        attackShootProbability: GameConfig.enemies.attackShootProbability,
+        burstFireEnabled: GameConfig.enemies.burstFireEnabled,
+        burstShotCount: GameConfig.enemies.burstShotCount,
+        burstFireInterval: GameConfig.enemies.burstFireInterval
+    };
+    
+    // Apply model-specific overrides from modelDetails if available
+    if (modelDetails) {
+        console.log(`Applying model-specific settings for ${model}:`, modelDetails);
+        // Override default settings with model-specific ones
+        Object.keys(modelDetails).forEach(key => {
+            // Only override properties that exist in enemyConfig and aren't 'name', 'type', 'sub_type', etc.
+            if (key in enemyConfig || ['health', 'moveSpeed', 'chaseSpeed', 'detectionRange'].includes(key)) {
+                enemyConfig[key] = modelDetails[key];
+            }
+        });
+    }
+    
     try {
         const result = await BABYLON.SceneLoader.ImportMeshAsync("", modelPath, model, scene);
         console.log("Enemy model loaded successfully:", result);
@@ -231,7 +271,7 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         headHitbox.isVisible = GameConfig.debug.showHitboxes;
         bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
         
-        // Store enemy in global map with hitbox references
+        // Store enemy in global map with hitbox references and merged configuration
         loadedEnemies[enemyId] = {
             id: enemyId,
             root: enemyRoot,
@@ -239,14 +279,31 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
             skeleton: result.skeletons[0],
             state: "IDLE",
             stateStartTime: Date.now(),
-            idleDuration: GameConfig.enemies.idleDuration,
+            idleDuration: enemyConfig.idleDuration,
             currentPath: null,
             currentPathIndex: 0,
-            moveSpeed: GameConfig.enemies.moveSpeed,
-            rotationSpeed: GameConfig.enemies.rotationSpeed,
+            moveSpeed: enemyConfig.moveSpeed,
+            chaseSpeed: enemyConfig.chaseSpeed,
+            rotationSpeed: enemyConfig.rotationSpeed,
             headHitbox: headHitbox,
             bodyHitbox: bodyHitbox,
-            health: GameConfig.enemies.health,
+            health: enemyConfig.health,
+            detectionRange: enemyConfig.detectionRange,
+            aggroTime: enemyConfig.aggroTime,
+            searchDuration: enemyConfig.searchDuration,
+            attackRange: enemyConfig.attackRange,
+            dodgeFrequency: enemyConfig.dodgeFrequency,
+            minDodgeDistance: enemyConfig.minDodgeDistance,
+            maxDodgeDistance: enemyConfig.maxDodgeDistance,
+            circleStrafing: enemyConfig.circleStrafing,
+            minAttackDistance: enemyConfig.minAttackDistance,
+            maxAttackDistance: enemyConfig.maxAttackDistance,
+            attackModeDecisionTime: enemyConfig.attackModeDecisionTime,
+            shootProbability: enemyConfig.shootProbability,
+            attackShootProbability: enemyConfig.attackShootProbability,
+            burstFireEnabled: enemyConfig.burstFireEnabled,
+            burstShotCount: enemyConfig.burstShotCount,
+            burstFireInterval: enemyConfig.burstFireInterval,
             animations: enemyAnimations, // Store per-enemy animations
             modelType: modelType, // Store the model type for animation selection
             currentAnim: null // Track current animation for this enemy
@@ -259,16 +316,13 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         // Create Yuka Vehicle for movement
         const vehicle = new YUKA.Vehicle();
         vehicle.position.set(position.x, 0, position.z);
-        vehicle.maxSpeed = GameConfig.enemies.moveSpeed;
+        vehicle.maxSpeed = enemyConfig.moveSpeed;
         vehicle.maxForce = 50;
         vehicle.updateNeeded = true;
         loadedEnemies[enemyId].vehicle = vehicle;
         
         // Add vehicle to entity manager
         entityManager.add(vehicle);
-        
-        // Initialize rotation speed
-        loadedEnemies[enemyId].rotationSpeed = GameConfig.enemies.rotationSpeed;
         
         // Play initial idle animation
         playEnemyAnimation(enemyId, "Idle");
@@ -299,20 +353,16 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
                 // Update hitbox visibility whenever it changes
                 if (loadedEnemies[enemyId].headHitbox) {
                     loadedEnemies[enemyId].headHitbox.isVisible = GameConfig.debug.showHitboxes;
-                }
-                if (loadedEnemies[enemyId].bodyHitbox) {
                     loadedEnemies[enemyId].bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
                 }
-            } else {
-                // If enemy no longer exists, remove the observer
-                scene.onBeforeRenderObservable.remove(observer);
             }
         });
         
-        // Store the observer for cleanup
+        // Store the observer for cleanup when enemy is disposed
         loadedEnemies[enemyId].observer = observer;
         
-        if (callback && typeof callback === 'function') {
+        // Call the callback with the enemy data
+        if (callback) {
             callback({
                 id: enemyId,
                 mesh: enemyRoot,
@@ -322,10 +372,11 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
             });
         }
         
+        // Return the enemy ID for reference
         return enemyId;
     } catch (error) {
         console.error("Error loading enemy model:", error);
-        throw error;
+        return null;
     }
 }
 

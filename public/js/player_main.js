@@ -521,8 +521,21 @@ async function spawnInitialEnemies() {
                     model.type === 'character' && 
                     model.sub_type === 'enemy'
                 );
-
+                
                 console.log(`Spawning enemy model: ${enemyObj.model}`);
+                
+                // Create merged configuration by combining model details with map-specific overrides
+                let mergedConfig = { ...modelDetails };
+                
+                // Add map-specific properties if they exist in the enemyObj
+                if (enemyObj.properties) {
+                    console.log(`Applying map-specific properties for enemy at (${enemyObj.position.x}, ${enemyObj.position.z})`, enemyObj.properties);
+                    
+                    // Merge properties from map data
+                    Object.keys(enemyObj.properties).forEach(key => {
+                        mergedConfig[key] = enemyObj.properties[key];
+                    });
+                }
 
                 // Spawn the enemy
                 loadEnemyModel(
@@ -533,7 +546,7 @@ async function spawnInitialEnemies() {
                         enemyObj.position.z
                     ),
                     enemyObj.model,  // Model path
-                    modelDetails,    // Additional model configuration
+                    mergedConfig,    // Merged configuration (GameConfig → model_data → map_data)
                     (enemyData) => {
                         // Store enemy in enemies object
                         enemies[enemyData.id] = {
@@ -542,7 +555,7 @@ async function spawnInitialEnemies() {
                             skeleton: enemyData.skeleton,
                             headHitbox: enemyData.headHitbox,
                             bodyHitbox: enemyData.bodyHitbox,
-                            health: modelDetails ? modelDetails.health : 100,
+                            health: mergedConfig.health || 100,
                             lastHitTime: 0,
                             hitCooldown: 1000
                         };
@@ -1379,7 +1392,7 @@ function updatePlayer() {
     if (keys.space && isGrounded) {
         verticalVelocity = jumpForce;
         isGrounded = false;
-        console.log("Jump initiated, vertical velocity: " + verticalVelocity);
+        debugLog("Jump initiated, vertical velocity: " + verticalVelocity);
     }
     
     // Apply gravity
@@ -1387,7 +1400,7 @@ function updatePlayer() {
     
     // Print the current player position and movement info - but limit frequency
     if (Math.random() < 0.005) { // Only log in ~0.5% of frames
-        console.log("Player movement:", { 
+        debugLog("Player movement:", { 
             position: camera.position,
             playerMeshPosition: playerMesh.position,
             moveDirection: moveDirection,
@@ -2757,7 +2770,7 @@ function spawnEnemy() {
             // No enemies in map, fall back to random spawn point
             debugLog("No enemies found in map data, using random spawn point");
             const spawnPoint = getRandomSpawnPoint();
-            spawnEnemyAtPosition(spawnPoint);
+            spawnEnemyAtPosition(spawnPoint, null);
         } else {
             // Spawn enemies at the positions defined in the map
             debugLog(`Found ${enemyObjects.length} enemies in map data`);
@@ -2800,19 +2813,20 @@ function spawnEnemy() {
                 };
                 
                 debugLog(`Spawning enemy from map at position: ${JSON.stringify(position)}`);
-                spawnEnemyAtPosition(position);
+                // Pass map-specific properties if they exist
+                spawnEnemyAtPosition(position, enemyObj.properties);
             });
         }
     }).catch(error => {
         debugLog(`Error loading map data for enemies: ${error}`, true);
         // Fall back to random spawn as a backup
         const spawnPoint = getRandomSpawnPoint();
-        spawnEnemyAtPosition(spawnPoint);
+        spawnEnemyAtPosition(spawnPoint, null);
     });
 }
 
 // Helper function to spawn an enemy at a specific position
-function spawnEnemyAtPosition(position) {
+function spawnEnemyAtPosition(position, mapProperties = null) {
     // Generate a unique ID for this enemy
     const enemyId = 'enemy_' + Date.now();
     
@@ -2820,25 +2834,68 @@ function spawnEnemyAtPosition(position) {
     const enemyModels = GameConfig.enemies.models;
     const randomModel = enemyModels[Math.floor(Math.random() * enemyModels.length)];
     
-    // Load the enemy model using the controller
-    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, null, (enemyData) => {
-        // Store the enemy data with the controller's ID
-        const enemyId = enemyData.id;
-        enemies[enemyId] = {
-            id: enemyId,
-            mesh: enemyData.mesh,
-            skeleton: enemyData.skeleton,
-            collisionBox: enemyData.collisionBox, // Store collision box reference
-            health: 100,
-            lastHitTime: 0,
-            hitCooldown: 1000
-        };
-        
-        debugLog("Enemy spawned successfully with ID: " + enemyId);
-        
-        // Set the enemy to patrol state using the controller
-        setEnemyState(enemyId, "PATROL");
-    });
+    // Load model data to get model-specific properties
+    fetch('/Demos/model_data.json')
+        .then(response => response.json())
+        .then(modelData => {
+            // Find model details for the selected model
+            const modelDetails = modelData.models.find(model => 
+                model.name === randomModel && 
+                model.type === 'character' && 
+                model.sub_type === 'enemy'
+            );
+            
+            // Create merged configuration
+            let mergedConfig = { ...modelDetails };
+            
+            // Add map-specific properties if provided
+            if (mapProperties) {
+                Object.keys(mapProperties).forEach(key => {
+                    mergedConfig[key] = mapProperties[key];
+                });
+            }
+            
+            // Load the enemy model using the controller with proper config hierarchy
+            loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, mergedConfig, (enemyData) => {
+                // Store the enemy data with the controller's ID
+                const enemyId = enemyData.id;
+                enemies[enemyId] = {
+                    id: enemyId,
+                    mesh: enemyData.mesh,
+                    skeleton: enemyData.skeleton,
+                    headHitbox: enemyData.headHitbox,
+                    bodyHitbox: enemyData.bodyHitbox,
+                    health: mergedConfig ? mergedConfig.health : 100,
+                    lastHitTime: 0,
+                    hitCooldown: 1000
+                };
+                
+                debugLog("Enemy spawned successfully with ID: " + enemyId);
+                
+                // Set the enemy to patrol state using the controller
+                setEnemyState(enemyId, "PATROL");
+            });
+        })
+        .catch(error => {
+            debugLog(`Error loading model data for spawning enemy: ${error}`, true);
+            
+            // Fall back to default spawning without model data
+            loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, null, (enemyData) => {
+                const enemyId = enemyData.id;
+                enemies[enemyId] = {
+                    id: enemyId,
+                    mesh: enemyData.mesh,
+                    skeleton: enemyData.skeleton,
+                    headHitbox: enemyData.headHitbox,
+                    bodyHitbox: enemyData.bodyHitbox,
+                    health: 100,
+                    lastHitTime: 0,
+                    hitCooldown: 1000
+                };
+                
+                setEnemyState(enemyId, "PATROL");
+            });
+        });
 }
 
 // Function to get a random spawn point

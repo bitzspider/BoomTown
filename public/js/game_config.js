@@ -51,7 +51,7 @@ const GameConfig = {
         deathAnimDuration: 500, // ms
         hitReactionDuration: 500, // ms
         searchDuration: 5000, // ms - how long enemy searches for player
-        models: ["Character_Enemy.glb"],
+        models: ["Character_Enemy.glb", "Character_Hazmat.glb", "Character_Soldier.glb"],
         
         // Movement settings
         idleDuration: 3000, // ms
@@ -104,7 +104,8 @@ const GameConfig = {
         // Search path settings
         searchPathMinWaypoints: 3,
         searchPathMaxWaypoints: 5
-    },
+    }
+    ,
     
     // Map settings
     map: {

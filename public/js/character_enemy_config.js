@@ -52,23 +52,70 @@ class CharacterEnemyConfig {
         ];
     }
 
-    static getAnimationForMode(mode) {
+    static getAnimationForMode(mode, modelType = "Character_Enemy") {
+        // First, try model-specific animation name mapping
+        const modelSpecificAnimation = this.getModelSpecificAnimation(mode, modelType);
+        if (modelSpecificAnimation) {
+            console.log(`Using model-specific animation for ${modelType} in mode ${mode}: ${modelSpecificAnimation}`);
+            return modelSpecificAnimation;
+        }
+
+        // Fall back to standard animations
         switch (mode) {
             case this.MODES.IDLE:
-                return "CharacterArmature|Idle";
+                return "Idle";
             case this.MODES.PATROL:
-                return "CharacterArmature|Walk";
+                return "Walk";
             case this.MODES.CHASE:
-                return "CharacterArmature|Run";
+                return "Run";
             case this.MODES.ATTACK:
-                return "CharacterArmature|Run";
+                return "Run";
             case this.MODES.DEATH:
-                return "CharacterArmature|Death";
+                return "Death";
             case this.MODES.HIT_REACT:
-                return "CharacterArmature|HitReact";
+                return "HitReact";
             default:
-                return "CharacterArmature|Idle";
+                return "Idle";
         }
+    }
+
+    // Helper method to get model-specific animation names
+    static getModelSpecificAnimation(mode, modelType) {
+        // Model-specific animation mappings
+        const animationMappings = {
+            "Character_Enemy": {
+                "IDLE": "CharacterArmature|Idle",
+                "PATROL": "CharacterArmature|Walk",
+                "CHASE": "CharacterArmature|Run",
+                "ATTACK": "CharacterArmature|Run",
+                "DEATH": "CharacterArmature|Death",
+                "HIT_REACT": "CharacterArmature|HitReact"
+            },
+            "Character_Soldier": {
+                "IDLE": "Idle",
+                "PATROL": "Walk_Shoot",
+                "CHASE": "Run_Shoot",
+                "ATTACK": "Run_Gun",
+                "DEATH": "Death",
+                "HIT_REACT": "HitReact"
+            },
+            "Character_Hazmat": {
+                "IDLE": "Idle",
+                "PATROL": "Walk",
+                "CHASE": "Run",
+                "ATTACK": "Run",
+                "DEATH": "Death",
+                "HIT_REACT": "HitReact"
+            }
+        };
+
+        // Check if we have mappings for this model type
+        if (animationMappings[modelType] && animationMappings[modelType][mode]) {
+            return animationMappings[modelType][mode];
+        }
+
+        // No model-specific mapping found
+        return null;
     }
 
     static getSpeedForMode(mode) {

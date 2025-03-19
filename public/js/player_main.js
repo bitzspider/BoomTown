@@ -15,6 +15,9 @@ var debugHUDVisible = false;
 // Make scene globally accessible
 window.scene = scene;
 
+// Initialize Yuka update flag
+window.yukaUpdated = false;
+
 // Player & Navigation
 var playerMesh;
 var ground;
@@ -327,14 +330,19 @@ function initializeGame() {
     
     // Start the render loop
     engine.runRenderLoop(function () {
-        if (scene) {
-            if (gameStarted && !gamePaused && !gameOver) {
-                updatePlayer();
-                updateProjectiles();
-                updateEnemies();
-            }
-            scene.render();
+        // Reset Yuka update flag before each frame
+        window.yukaUpdated = false;
+        
+        if (!window.gamePaused) {
+            updatePlayer();
+            updateProjectiles();
+            updateEnemies();
+            checkCollisions();
+            updateHUD();
+            updateDebugInfo();
         }
+        
+        scene.render();
     });
     
     // Handle window resize
@@ -352,11 +360,21 @@ function initializeGame() {
 
 // Start game loop
 function startGameLoop() {
-    scene.registerBeforeRender(() => {
-        updatePlayer();
-        updateEnemies();
-        updateProjectiles();
-        checkCollisions();
+    // Run the render loop
+    engine.runRenderLoop(function () {
+        // Reset Yuka update flag before each frame
+        window.yukaUpdated = false;
+        
+        if (!window.gamePaused) {
+            updatePlayer();
+            updateProjectiles();
+            updateEnemies();
+            checkCollisions();
+            updateHUD();
+            updateDebugInfo();
+        }
+        
+        scene.render();
     });
 }
 
@@ -418,8 +436,8 @@ async function startGame(selectedMapId) {
         // Start game loop
         startGameLoop();
         
-        // Spawn a single test enemy
-        spawnEnemy();
+        // Spawn all enemies from map data
+        await spawnInitialEnemies();
         
         // Hide menu
         document.getElementById('menu').style.display = 'none';
@@ -445,9 +463,106 @@ async function startGame(selectedMapId) {
 }
 
 // Spawn initial enemies
-function spawnInitialEnemies() {
-    debugLog("Spawning initial enemy...");
-    spawnEnemy();
+async function spawnInitialEnemies() {
+    try {
+        // Fetch map data
+        const mapDataResponse = await fetch('/Demos/map_data.json');
+        const mapData = await mapDataResponse.json();
+
+        // Fetch model data
+        const modelDataResponse = await fetch('/Demos/model_data.json');
+        const modelData = await modelDataResponse.json();
+
+        // Find all enemy objects in the map data
+        const enemyObjects = mapData.objects.filter(obj => 
+            obj.model.startsWith('Character_') && 
+            obj.model.endsWith('.glb')
+        );
+
+        console.log(`Spawning ${enemyObjects.length} enemies from map data`);
+        
+        // First, find and remove any placeholder enemy meshes to prevent duplicates
+        const enemyPlaceholders = scene.meshes.filter(mesh => 
+            mesh.name && (
+                mesh.name.includes("Character_Enemy") || 
+                mesh.name.includes("Character_Soldier") ||
+                mesh.name.includes("Character_Hazmat") ||
+                (mesh.name.includes("enemy") && !mesh.name.includes("enemy_")) || 
+                enemyObjects.some(obj => obj.id === mesh.name || obj.id === mesh.id)
+            )
+        );
+        
+        // Remove all enemy placeholders to prevent duplicates
+        if (enemyPlaceholders.length > 0) {
+            console.log(`Found ${enemyPlaceholders.length} enemy placeholders to remove`);
+            
+            enemyPlaceholders.forEach(mesh => {
+                console.log(`Removing enemy placeholder: ${mesh.name}`);
+                
+                // First, dispose all child meshes
+                if (typeof mesh.getChildMeshes === 'function') {
+                    const childMeshes = mesh.getChildMeshes();
+                    childMeshes.forEach(childMesh => {
+                        childMesh.dispose(false, true);
+                    });
+                }
+                
+                // Then dispose the root mesh itself
+                mesh.dispose(false, true);
+            });
+        }
+
+        // Create a promise array to handle async enemy spawning
+        const enemySpawnPromises = enemyObjects.map(enemyObj => {
+            return new Promise((resolve, reject) => {
+                // Find corresponding model details
+                const modelDetails = modelData.models.find(model => 
+                    model.name === enemyObj.model && 
+                    model.type === 'character' && 
+                    model.sub_type === 'enemy'
+                );
+
+                console.log(`Spawning enemy model: ${enemyObj.model}`);
+
+                // Spawn the enemy
+                loadEnemyModel(
+                    scene,  // Scene parameter
+                    new BABYLON.Vector3(
+                        enemyObj.position.x, 
+                        enemyObj.position.y || 0, 
+                        enemyObj.position.z
+                    ),
+                    enemyObj.model,  // Model path
+                    modelDetails,    // Additional model configuration
+                    (enemyData) => {
+                        // Store enemy in enemies object
+                        enemies[enemyData.id] = {
+                            id: enemyData.id,
+                            mesh: enemyData.mesh,
+                            skeleton: enemyData.skeleton,
+                            headHitbox: enemyData.headHitbox,
+                            bodyHitbox: enemyData.bodyHitbox,
+                            health: modelDetails ? modelDetails.health : 100,
+                            lastHitTime: 0,
+                            hitCooldown: 1000
+                        };
+
+                        // Explicitly set enemy to PATROL state
+                        setEnemyState(enemyData.id, "PATROL");
+                        
+                        resolve(enemyData.id);
+                    }
+                );
+            });
+        });
+
+        // Wait for all enemies to spawn
+        await Promise.all(enemySpawnPromises);
+
+        console.log(`Successfully spawned and set ${enemyObjects.length} enemies to PATROL state`);
+    } catch (error) {
+        console.error('Error spawning initial enemies:', error);
+    }
 }
 
 // Setup pause menu
@@ -1392,7 +1507,7 @@ function checkNonGroundCollision(position) {
                 
                 // Log collisions that are close but not quite colliding
                 if (distance < playerRadius + radius + 1 && distance >= playerRadius + radius - 0.1) {
-                    console.log(`Near collision with: ${mesh.name}`, {
+                    debugLog(`Near collision with: ${mesh.name}`, {
                         distance: distance,
                         combinedRadius: playerRadius + radius,
                         hDistance: Math.sqrt(horizontalDistSq)
@@ -1400,7 +1515,7 @@ function checkNonGroundCollision(position) {
                 }
                 
                 if (distance < (playerRadius + radius - 0.1)) {
-                    console.log(`Collision with: ${mesh.name}`, {
+                    debugLog(`Collision with: ${mesh.name}`, {
                         distance: distance,
                         combinedRadius: playerRadius + radius,
                         hDistance: Math.sqrt(horizontalDistSq)
@@ -2701,8 +2816,12 @@ function spawnEnemyAtPosition(position) {
     // Generate a unique ID for this enemy
     const enemyId = 'enemy_' + Date.now();
     
+    // Select a random enemy model from the available models in GameConfig
+    const enemyModels = GameConfig.enemies.models;
+    const randomModel = enemyModels[Math.floor(Math.random() * enemyModels.length)];
+    
     // Load the enemy model using the controller
-    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), null, null, (enemyData) => {
+    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, null, (enemyData) => {
         // Store the enemy data with the controller's ID
         const enemyId = enemyData.id;
         enemies[enemyId] = {

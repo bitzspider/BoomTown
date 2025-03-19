@@ -36,8 +36,8 @@ function generateUniqueId() {
     return 'enemy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
-let availableAnimations = {};
-let currentAnim = null;
+// Changed from global to per-enemy animations tracking
+var currentAnim = null;
 
 // Function to check if a new path overlaps with existing paths
 function doesPathOverlap(newPath, minDistance = GameConfig.patrolPaths.minDistance) {
@@ -62,8 +62,12 @@ function doesPathOverlap(newPath, minDistance = GameConfig.patrolPaths.minDistan
 function getUniquePatrolPath(position, maxAttempts = GameConfig.patrolPaths.maxAttempts) {
     let attempts = 0;
     let path;
+    let overlapDetected = false;
     
     do {
+        overlapDetected = false;
+        attempts++;
+        
         // Generate a random number of waypoints between min and max from config
         const numPoints = GameConfig.patrolPaths.minWaypoints + 
                           Math.floor(Math.random() * (GameConfig.patrolPaths.maxWaypoints - GameConfig.patrolPaths.minWaypoints + 1));
@@ -97,14 +101,19 @@ function getUniquePatrolPath(position, maxAttempts = GameConfig.patrolPaths.maxA
         // Add the start point again to close the loop
         path.push({ ...path[0] });
         
-        attempts++;
-    } while (doesPathOverlap(path, GameConfig.patrolPaths.minDistance) && attempts < maxAttempts);
+        // Check if this path overlaps with any existing path
+        overlapDetected = doesPathOverlap(path);
+        
+    } while (overlapDetected && attempts < maxAttempts);
     
-    if (path) {
+    // If we found a valid path, add it to existingPaths
+    if (!overlapDetected) {
         existingPaths.push(path);
+        console.log(`Created unique patrol path with ${path.length} waypoints after ${attempts} attempts, total paths: ${existingPaths.length}`);
+    } else {
+        console.warn(`Failed to create non-overlapping path after ${attempts} attempts, using potentially overlapping path`);
     }
     
-    debugLog(`Generated path with ${path.length} waypoints`);
     return path;
 }
 
@@ -117,7 +126,7 @@ function generateRandomSpawnPosition() {
 }
 
 // Load the Character_Enemy model
-async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null, callback = null) {
+async function loadEnemyModel(sceneParam, position, modelParam = null, modelDetails = null, callback = null) {
     // Set the global scene reference
     scene = sceneParam;
     
@@ -126,27 +135,43 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         position = generateRandomSpawnPosition();
     }
     
-    debugLog("Loading enemy model at position:", position);
+    console.log("Loading enemy model at position:", position);
     
     const modelPath = "/models/";
-    const model = "Character_Enemy.glb";
+    // Use the provided model parameter or fall back to Character_Enemy.glb
+    const model = modelParam || "Character_Enemy.glb";
+    const modelType = model.split('.')[0]; // Extract model name without extension
+    
+    console.log(`Loading enemy model: ${model}, type: ${modelType}`);
     
     try {
         const result = await BABYLON.SceneLoader.ImportMeshAsync("", modelPath, model, scene);
-        debugLog("Enemy model loaded successfully:", result);
+        console.log("Enemy model loaded successfully:", result);
         
         const enemyId = generateUniqueId();
         const enemyRoot = result.meshes[0];
         
-        // Store animations
-        debugLog("=== AVAILABLE ENEMY ANIMATIONS ===");
-        scene.animationGroups.forEach(animGroup => {
-            debugLog(`Animation found: "${animGroup.name}"`);
-            availableAnimations[animGroup.name] = animGroup;
+        // Clone animation groups to make them unique per enemy
+        const enemyAnimations = {};
+        console.log(`=== AVAILABLE ANIMATIONS FOR ENEMY ${enemyId} (${modelType}) ===`);
+        
+        // Clone each animation group with a unique name for this enemy
+        result.animationGroups.forEach(originalAnimGroup => {
+            // Create a clone with unique name for this enemy instance
+            const uniqueName = `${originalAnimGroup.name}_${enemyId}`;
+            const clonedGroup = originalAnimGroup.clone();
+            clonedGroup.name = uniqueName;
+            
+            // Store in the enemy's animation collection
+            enemyAnimations[originalAnimGroup.name] = clonedGroup;
+            console.log(`Animation cloned for ${modelType}: "${originalAnimGroup.name}" -> "${uniqueName}"`);
+            
+            // Stop the original to ensure it doesn't interfere
+            originalAnimGroup.stop();
         });
         
         // List all available animations to help with debugging
-        listAvailableAnimations();
+        listAvailableAnimations(enemyAnimations);
         
         // Create transform node for positioning
         const enemyTransform = new BABYLON.TransformNode(`enemy_${enemyId}_root`, scene);
@@ -154,7 +179,7 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         
         // Position enemy at spawn point
         enemyTransform.position = position;
-
+        
         // Create head hitbox with enemy ID
         const headHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_head_${enemyId}`, {
             width: GameConfig.enemies.headHitbox.width,
@@ -221,7 +246,10 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
             rotationSpeed: GameConfig.enemies.rotationSpeed,
             headHitbox: headHitbox,
             bodyHitbox: bodyHitbox,
-            health: GameConfig.enemies.health
+            health: GameConfig.enemies.health,
+            animations: enemyAnimations, // Store per-enemy animations
+            modelType: modelType, // Store the model type for animation selection
+            currentAnim: null // Track current animation for this enemy
         };
         
         // Generate unique patrol path starting from spawn position
@@ -245,25 +273,44 @@ async function loadEnemyModel(sceneParam, position, param1 = null, param2 = null
         // Play initial idle animation
         playEnemyAnimation(enemyId, "Idle");
         
-        // Set up state transition observer and Yuka update
-        scene.onBeforeRenderObservable.add(() => {
-            if (window.gamePaused) return;
-            
-            const deltaTime = engine.getDeltaTime() / 1000;
-            time.update();
-            entityManager.update(deltaTime);
-            updateEnemyState(enemyId);
-            
-            // Add explicit call to syncEnemyWithYuka
-            syncEnemyWithYuka(enemyId);
-            
-            // Update hitbox visibility whenever it changes
-            headHitbox.isVisible = GameConfig.debug.showHitboxes;
-            bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
-        });
-        
         // Create visualization for initial path
         createPathVisualization(enemyId, patrolPath);
+        
+        // Set up state transition observer and Yuka update
+        const observer = scene.onBeforeRenderObservable.add(() => {
+            if (window.gamePaused) return;
+            
+            // Only run this code if the enemy still exists
+            if (loadedEnemies[enemyId]) {
+                const deltaTime = engine.getDeltaTime() / 1000;
+                
+                // Update Yuka entity manager only once
+                if (!window.yukaUpdated) {
+                    time.update();
+                    entityManager.update(deltaTime);
+                    window.yukaUpdated = true;
+                }
+                
+                updateEnemyState(enemyId);
+                
+                // Add explicit call to syncEnemyWithYuka
+                syncEnemyWithYuka(enemyId);
+                
+                // Update hitbox visibility whenever it changes
+                if (loadedEnemies[enemyId].headHitbox) {
+                    loadedEnemies[enemyId].headHitbox.isVisible = GameConfig.debug.showHitboxes;
+                }
+                if (loadedEnemies[enemyId].bodyHitbox) {
+                    loadedEnemies[enemyId].bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
+                }
+            } else {
+                // If enemy no longer exists, remove the observer
+                scene.onBeforeRenderObservable.remove(observer);
+            }
+        });
+        
+        // Store the observer for cleanup
+        loadedEnemies[enemyId].observer = observer;
         
         if (callback && typeof callback === 'function') {
             callback({
@@ -846,28 +893,37 @@ function checkEnemyCollisions(enemy) {
 
 // Play animation on enemy
 function playEnemyAnimation(enemyId, animationName) {
-    debugLog(`Attempting to play animation for enemy ${enemyId}: "${animationName}"`);
-    
-    if (!availableAnimations) {
-        console.warn("No animations available");
-        return;
-    }
-    
     const enemy = loadedEnemies[enemyId];
     if (!enemy) {
         console.error(`Enemy ${enemyId} not found in loadedEnemies!`);
         return;
     }
     
+    const modelType = enemy.modelType || "Character_Enemy";
+    console.log(`[ANIMATION] Attempting to play animation for enemy ${enemyId} (${modelType}): "${animationName}"`);
+    
+    // Use per-enemy animations
+    const availableAnimations = enemy.animations;
+    if (!availableAnimations || Object.keys(availableAnimations).length === 0) {
+        console.warn(`No animations available for enemy ${enemyId}`);
+        return;
+    }
+    
+    // Log all available animations to help diagnose issues
+    console.log(`[ANIMATION] Available animations for ${modelType} (${enemyId}):`);
+    Object.keys(availableAnimations).forEach(key => {
+        console.log(`  - ${key}`);
+    });
+    
     // Special case for death animation - make sure we only play it once
     if (animationName.toLowerCase() === "death" && enemy._deathAnimationPlayed) {
-        debugLog(`Death animation already played for enemy ${enemyId}, skipping`);
+        console.log(`Death animation already played for enemy ${enemyId}, skipping`);
         return;
     }
     
     // Special case for hit reaction - directly try to find the HitReact animation
     if (enemy.state === "HIT_REACT") {
-        debugLog(`Enemy ${enemyId} is in HIT_REACT state, looking for hit reaction animation`);
+        console.log(`Enemy ${enemyId} is in HIT_REACT state, looking for hit reaction animation`);
         
         // Try to find a hit reaction animation
         const hitAnimationVariants = [
@@ -880,7 +936,7 @@ function playEnemyAnimation(enemyId, animationName) {
         // Check if any hit animation exists
         for (const variant of hitAnimationVariants) {
             if (availableAnimations[variant]) {
-                debugLog(`Found hit reaction animation: "${variant}"`);
+                console.log(`Found hit reaction animation: "${variant}"`);
                 animationName = variant;
                 break;
             }
@@ -889,73 +945,192 @@ function playEnemyAnimation(enemyId, animationName) {
             const matchingKey = Object.keys(availableAnimations).find(key => 
                 key.toLowerCase().includes(variant.toLowerCase()));
             if (matchingKey) {
-                debugLog(`Found partial hit reaction animation match: "${matchingKey}"`);
+                console.log(`Found partial hit reaction animation match: "${matchingKey}"`);
                 animationName = matchingKey;
                 break;
             }
         }
-        
-        // Log all available animations to help debug if we couldn't find a hit animation
-        if (animationName === "HitReact") {
-            debugLog("Available animations for hit reaction:");
-            Object.keys(availableAnimations).forEach(key => {
-                debugLog(`- ${key}`);
-            });
-        }
     }
     
     let animation = null;
-    const animationVariants = [
-        animationName, // Exact match
-        "CharacterArmature|" + animationName, // With prefix
-        animationName.toLowerCase(), // Lowercase
-        "CharacterArmature|" + animationName.toLowerCase() // Prefix with lowercase
-    ];
     
-    // Try all animation name variants
-    for (const variant of animationVariants) {
-        // Try exact match
-        if (availableAnimations[variant]) {
-            animation = availableAnimations[variant];
-            debugLog(`Found animation match: "${variant}"`);
-            break;
-        }
-        
-        // Try partial match
-        const matchingKey = Object.keys(availableAnimations).find(key => 
-            key.toLowerCase().includes(variant.toLowerCase()));
-        if (matchingKey) {
-            animation = availableAnimations[matchingKey];
-            debugLog(`Found partial animation match: "${matchingKey}" for "${variant}"`);
-            break;
+    // First, check if any animation key contains "/walk", "/idle", or "/run"
+    // This handles "armature/walk" style animation names the user mentioned
+    const slashVariants = ["/walk", "/run", "/idle", "/death"];
+    if (animationName.toLowerCase() === "walk" || animationName.toLowerCase() === "run" || 
+        animationName.toLowerCase() === "idle" || animationName.toLowerCase() === "death") {
+        for (const variant of slashVariants) {
+            if (variant.includes(animationName.toLowerCase())) {
+                const slashKey = Object.keys(availableAnimations).find(key => 
+                    key.toLowerCase().includes(variant));
+                if (slashKey) {
+                    animation = availableAnimations[slashKey];
+                    console.log(`[ANIMATION] Found slash-style animation: "${slashKey}" for "${animationName}"`);
+                    break;
+                }
+            }
         }
     }
     
+    // If no animation found yet, try extensive animation name variants
+    if (!animation) {
+        // Create a more extensive list of animation name variants based on model type
+        const animationVariants = [];
+        
+        // Add original animation name
+        animationVariants.push(animationName);
+        
+        // Add armature variants (with and without capitalization)
+        animationVariants.push(`armature/${animationName.toLowerCase()}`);
+        animationVariants.push(`Armature/${animationName.toLowerCase()}`);
+        animationVariants.push(`armature/${animationName}`);
+        animationVariants.push(`Armature/${animationName}`);
+        
+        // Add model-specific variants
+        animationVariants.push(`${modelType}|${animationName}`);
+        animationVariants.push(`${animationName}_${modelType}`);
+        
+        // Add standard variants
+        animationVariants.push("CharacterArmature|" + animationName);
+        animationVariants.push(animationName.toLowerCase());
+        animationVariants.push("CharacterArmature|" + animationName.toLowerCase());
+        
+        // Add common animation name variations
+        if (animationName.toLowerCase() === "walk") {
+            animationVariants.push("Walk_Shoot");
+            animationVariants.push("Walking");
+            animationVariants.push("walk");
+            animationVariants.push("walkcycle");
+            animationVariants.push("WalkCycle");
+            animationVariants.push("Walk Cycle");
+        } else if (animationName.toLowerCase() === "run") {
+            animationVariants.push("Run_Shoot");
+            animationVariants.push("Run_Gun");
+            animationVariants.push("Running");
+            animationVariants.push("run");
+            animationVariants.push("runcycle");
+            animationVariants.push("RunCycle");
+            animationVariants.push("Run Cycle");
+        } else if (animationName.toLowerCase() === "idle") {
+            animationVariants.push("Idle_Shoot");
+            animationVariants.push("Standing");
+            animationVariants.push("idle");
+            animationVariants.push("stand");
+            animationVariants.push("Stand");
+        } else if (animationName.toLowerCase() === "death") {
+            animationVariants.push("Die");
+            animationVariants.push("Dead");
+            animationVariants.push("death");
+            animationVariants.push("dying");
+            animationVariants.push("Dying");
+        }
+        
+        console.log(`[ANIMATION] Trying animation variants for ${animationName}: ${animationVariants.join(', ')}`);
+        
+        // Try all animation name variants
+        for (const variant of animationVariants) {
+            // Try exact match
+            if (availableAnimations[variant]) {
+                animation = availableAnimations[variant];
+                console.log(`[ANIMATION] Found exact animation match: "${variant}"`);
+                break;
+            }
+            
+            // Try partial match - this helps with prefix/suffix variations
+            const matchingKey = Object.keys(availableAnimations).find(key => 
+                key.toLowerCase().includes(variant.toLowerCase()));
+            if (matchingKey) {
+                animation = availableAnimations[matchingKey];
+                console.log(`[ANIMATION] Found partial animation match: "${matchingKey}" for "${variant}"`);
+                break;
+            }
+        }
+    }
+    
+    // If still no animation found, try a generic approach by simple string matching
+    if (!animation) {
+        console.log(`[ANIMATION] No specific match found, trying generic category matching`);
+        const lowerAnimName = animationName.toLowerCase();
+        
+        if (lowerAnimName.includes("walk")) {
+            // Look for any walking-related animation
+            const walkKey = Object.keys(availableAnimations).find(key => 
+                key.toLowerCase().includes("walk") || 
+                key.toLowerCase().includes("run") ||
+                key.toLowerCase().includes("move"));
+                
+            if (walkKey) {
+                animation = availableAnimations[walkKey];
+                console.log(`[ANIMATION] Found walking animation by category: "${walkKey}"`);
+            }
+        } else if (lowerAnimName.includes("idle")) {
+            // Look for any idle/standing animation
+            const idleKey = Object.keys(availableAnimations).find(key => 
+                key.toLowerCase().includes("idle") || 
+                key.toLowerCase().includes("stand"));
+                
+            if (idleKey) {
+                animation = availableAnimations[idleKey];
+                console.log(`[ANIMATION] Found idle animation by category: "${idleKey}"`);
+            }
+        } else if (lowerAnimName.includes("death") || lowerAnimName.includes("die")) {
+            // Look for any death animation
+            const deathKey = Object.keys(availableAnimations).find(key => 
+                key.toLowerCase().includes("death") || 
+                key.toLowerCase().includes("die") ||
+                key.toLowerCase().includes("dead"));
+                
+            if (deathKey) {
+                animation = availableAnimations[deathKey];
+                console.log(`[ANIMATION] Found death animation by category: "${deathKey}"`);
+            }
+        }
+    }
+    
+    // Last resort - just pick any animation
+    if (!animation && Object.keys(availableAnimations).length > 0) {
+        // Just use any animation as a fallback
+        const firstKey = Object.keys(availableAnimations)[0];
+        animation = availableAnimations[firstKey];
+        console.log(`[ANIMATION] Using fallback animation: "${firstKey}" as no match found for "${animationName}"`);
+    }
+    
     if (animation) {
-        // Stop all animations first
-        Object.values(availableAnimations).forEach(anim => {
-            anim.stop();
-        });
+        // Stop this enemy's current animation if it exists
+        if (enemy.currentAnim && enemy.currentAnim.isPlaying) {
+            enemy.currentAnim.stop();
+        }
         
         // Start the requested animation
         animation.start(true);
-        currentAnim = animation;
-        debugLog(`Successfully playing animation: "${animation.name}"`);
+        enemy.currentAnim = animation; // Store the current animation in the enemy object
+        console.log(`[ANIMATION] Successfully playing animation: "${animation.name}" for enemy ${enemyId} (${modelType})`);
         
         // Mark death animation as played if this is a death animation
         if (animationName.toLowerCase() === "death") {
             enemy._deathAnimationPlayed = true;
         }
     } else {
-        console.warn(`Animation not found: "${animationName}". Available animations:`, Object.keys(availableAnimations));
-        
-        // Log all available animations to help debug
-        debugLog("All available animations:");
-        Object.keys(availableAnimations).forEach(key => {
-            debugLog(`- ${key}`);
-        });
+        console.warn(`[ANIMATION ERROR] No animation found or available for "${animationName}" on enemy ${enemyId} (${modelType})`);
     }
 }
+
+// Function to list all available animations
+function listAvailableAnimations(animations) {
+    if (!animations) {
+        console.warn("No animations available to list");
+        return;
+    }
+    
+    debugLog(`Found ${Object.keys(animations).length} animations:`);
+    Object.keys(animations).forEach((key, index) => {
+        debugLog(`${index + 1}. "${key}"`);
+    });
+    debugLog("=======================================");
+}
+
+// Make the function globally accessible
+window.listAvailableAnimations = listAvailableAnimations;
 
 // Set enemy state and play corresponding animation
 function setEnemyState(enemyId, state) {
@@ -1031,16 +1206,18 @@ function setEnemyState(enemyId, state) {
     }
     
     // Get animation name from character config
-    const configAnimation = CharacterEnemyConfig.getAnimationForMode(state);
+    const modelType = enemy.modelType || "Character_Enemy";
+    const configAnimation = CharacterEnemyConfig.getAnimationForMode(state, modelType);
     // Remove the "CharacterArmature|" prefix if it exists
     const animationName = configAnimation.replace("CharacterArmature|", "");
-    debugLog(`Playing animation for state ${state}:`, animationName);
+    
+    console.log(`Playing animation for state ${state} for ${modelType}: ${animationName}`);
     
     // Update movement speed based on state
     if (enemy.vehicle) {
         const speed = CharacterEnemyConfig.getSpeedForMode(state);
         enemy.vehicle.maxSpeed = speed;
-        debugLog(`Updated enemy speed to ${speed} for state ${state}`);
+        console.log(`Updated enemy speed to ${speed} for state ${state}`);
     }
     
     // Play the animation
@@ -1082,16 +1259,17 @@ function setEnemyRotation(enemyId, rotation) {
 
 // Dispose enemy model
 function disposeEnemy(enemyId) {
+    console.log(`Disposing enemy ${enemyId}`);
+    
     const enemy = loadedEnemies[enemyId];
     if (!enemy) {
-        console.error("Enemy not found for ID:", enemyId);
+        console.warn(`Enemy ${enemyId} not found for disposal`);
         return;
     }
     
-    // Remove path from existingPaths
-    const pathIndex = existingPaths.indexOf(enemy.currentPath);
-    if (pathIndex !== -1) {
-        existingPaths.splice(pathIndex, 1);
+    // Remove observer
+    if (enemy.observer) {
+        scene.onBeforeRenderObservable.remove(enemy.observer);
     }
     
     // Remove from entity manager
@@ -1099,24 +1277,27 @@ function disposeEnemy(enemyId) {
         entityManager.remove(enemy.vehicle);
     }
     
-    // Remove from scene observer
-    if (scene && scene.onBeforeRenderObservable) {
-        // Note: This is a simplified removal. In a full implementation,
-        // you'd want to store and remove the specific observer.
-        scene.onBeforeRenderObservable.clear();
+    // Dispose hitboxes
+    if (enemy.headHitbox) {
+        enemy.headHitbox.dispose();
     }
     
-    // Dispose collision box
-    if (enemy.collisionBox) {
-        enemy.collisionBox.dispose();
+    if (enemy.bodyHitbox) {
+        enemy.bodyHitbox.dispose();
     }
     
-    // Dispose meshes
+    // Dispose main mesh
     if (enemy.root) {
         enemy.root.dispose();
     }
-    if (enemy.transform) {
-        enemy.transform.dispose();
+    
+    // Remove enemy's path from existingPaths
+    if (enemy.currentPath) {
+        const pathIndex = existingPaths.indexOf(enemy.currentPath);
+        if (pathIndex !== -1) {
+            existingPaths.splice(pathIndex, 1);
+            console.log(`Removed path from existingPaths. Remaining paths: ${existingPaths.length}`);
+        }
     }
     
     // Remove visualization
@@ -1311,7 +1492,7 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
     
     // Log available animations to help debug hit reaction
     debugLog("Available animations for hit reaction check:");
-    Object.keys(availableAnimations).forEach(key => {
+    Object.keys(enemy.animations).forEach(key => {
         debugLog(`- ${key}`);
     });
     
@@ -1880,7 +2061,7 @@ function forceAnimationDirection(enemyId, direction) {
     }
     
     // Get current animation
-    const currentAnimation = currentAnim;
+    const currentAnimation = enemy.currentAnim;
     if (!currentAnimation) {
         console.warn(`[ANIMATION] No current animation for enemy ${enemyId}`);
         return;
@@ -2002,35 +2183,6 @@ function createDamageIndicator(position, damage) {
     // Start animation
     animateIndicator();
 }
-
-// Function to list all available animations
-function listAvailableAnimations() {
-    debugLog("=== LISTING ALL AVAILABLE ANIMATIONS ===");
-    if (!availableAnimations) {
-        console.warn("No animations available");
-        return;
-    }
-    
-    debugLog(`Found ${Object.keys(availableAnimations).length} animations:`);
-    Object.keys(availableAnimations).forEach((key, index) => {
-        debugLog(`${index + 1}. "${key}"`);
-    });
-    debugLog("=======================================");
-}
-
-// Make the function globally accessible
-window.listAvailableAnimations = listAvailableAnimations;
-
-// Call this function after animations are loaded
-const originalLoadEnemyModel = loadEnemyModel;
-loadEnemyModel = async function(sceneParam, position, param1 = null, param2 = null, callback = null) {
-    const result = await originalLoadEnemyModel(sceneParam, position, param1, param2, callback);
-    
-    // List animations after loading
-    setTimeout(listAvailableAnimations, 1000);
-    
-    return result;
-};
 
 // Check if player is in sight of the enemy (no obstacles in between)
 function isPlayerInSight(enemyId) {

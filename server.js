@@ -29,6 +29,21 @@ app.get('/map-data', async (req, res) => {
     }
 });
 
+// Get model data endpoint
+app.get('/model-data', async (req, res) => {
+    try {
+        const modelData = await fs.readFile(
+            path.join(__dirname, 'public', 'Demos', 'model_data.json'),
+            'utf8'
+        );
+        res.setHeader('Content-Type', 'application/json');
+        res.send(modelData);
+    } catch (error) {
+        console.error('Error reading model data:', error);
+        res.status(500).json({ error: 'Failed to read model data' });
+    }
+});
+
 // Save map endpoint
 app.post('/save-map', async (req, res) => {
     try {

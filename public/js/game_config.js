@@ -32,16 +32,16 @@ const GameConfig = {
         doubleTapThreshold: 300, // ms for double tap to run
     },
     
-    // Weapon settings
+    // Player Weapon settings
     weapons: {
         shootCooldown: 500, // ms
         maxAmmo: 100,
         defaultAmmo: 30,
     },
     
-    // Enemy settings
+   // Enemy settings
     enemies: {
-        maxEnemies: 5,
+        // DEFAULT Enemy settings
         spawnInterval: 10000, // ms
         respawnMinTime: 5000, // 5 seconds minimum respawn time
         respawnMaxTime: 10000, // 10 seconds maximum respawn time
@@ -55,8 +55,8 @@ const GameConfig = {
         
         // Movement settings
         idleDuration: 3000, // ms
-        moveSpeed: 2.0,
-        chaseSpeed: 4.0, // Faster when chasing
+        moveSpeed: .7,
+        chaseSpeed: 1.0, // Faster when chasing
         rotationSpeed: 0.15,
         
         // Attack mode settings

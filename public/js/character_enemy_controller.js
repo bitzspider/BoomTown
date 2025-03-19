@@ -332,7 +332,8 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         
         // Set up state transition observer and Yuka update
         const observer = scene.onBeforeRenderObservable.add(() => {
-            if (window.gamePaused) return;
+            // Don't update enemies if game is paused or game over
+            if (window.gamePaused || window.gameOver) return;
             
             // Only run this code if the enemy still exists
             if (loadedEnemies[enemyId]) {
@@ -817,6 +818,9 @@ function updateEnemyChase(enemyId) {
 
 // Enemy shoots at player
 function enemyShootAtPlayer(enemyId) {
+    // Don't shoot if game is over or paused
+    if (window.gameOver || window.gamePaused) return;
+    
     const enemy = loadedEnemies[enemyId];
     if (!enemy || !playerMesh) return;
     
@@ -944,6 +948,9 @@ function checkEnemyCollisions(enemy) {
 
 // Play animation on enemy
 function playEnemyAnimation(enemyId, animationName) {
+    // Don't play animations if game is over
+    if (window.gameOver) return;
+    
     const enemy = loadedEnemies[enemyId];
     if (!enemy) {
         console.error(`Enemy ${enemyId} not found in loadedEnemies!`);

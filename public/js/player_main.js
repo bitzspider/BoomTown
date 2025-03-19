@@ -130,6 +130,11 @@ var gameStarted = false;
 var gamePaused = false;
 var gameOver = false;
 
+// Expose game state to window object for global access
+window.gameStarted = gameStarted;
+window.gamePaused = gamePaused;
+window.gameOver = gameOver;
+
 // Map boundaries - make it global by attaching to window
 window.MAP_BOUNDARIES = GameConfig.map.boundaries;
 
@@ -333,7 +338,7 @@ function initializeGame() {
         // Reset Yuka update flag before each frame
         window.yukaUpdated = false;
         
-        if (!window.gamePaused) {
+        if (!window.gamePaused && !window.gameOver) {
             updatePlayer();
             updateProjectiles();
             updateEnemies();
@@ -365,7 +370,7 @@ function startGameLoop() {
         // Reset Yuka update flag before each frame
         window.yukaUpdated = false;
         
-        if (!window.gamePaused) {
+        if (!window.gamePaused && !window.gameOver) {
             updatePlayer();
             updateProjectiles();
             updateEnemies();
@@ -447,8 +452,11 @@ async function startGame(selectedMapId) {
         
         // Set game state
         gameStarted = true;
-        gameOver = false;
+        window.gameStarted = true;
         gamePaused = false;
+        window.gamePaused = false;
+        gameOver = false;
+        window.gameOver = false;
         
         // Setup input handlers after everything is initialized
         if (scene) {
@@ -1320,7 +1328,8 @@ function setupInputHandlers(canvas, scene) {
 
 // Update player position and camera based on input
 function updatePlayer() {
-    if (!playerMesh || !camera) return;
+    // Don't update player if game is over
+    if (window.gameOver || !playerMesh || !camera) return;
     
     // Get forward and right directions based on camera rotation
     const forward = new BABYLON.Vector3(
@@ -1580,6 +1589,9 @@ function updateHUD() {
 
 // Shoot projectile function
 function shootProjectile() {
+    // Don't shoot if game is over or paused
+    if (window.gameOver || window.gamePaused) return;
+    
     const currentTime = Date.now();
     
     // Check cooldown
@@ -1758,6 +1770,9 @@ function createMuzzleFlash(position, direction) {
 
 // Update projectiles
 function updateProjectiles() {
+    // Don't update projectiles if game is over
+    if (window.gameOver) return;
+    
     const currentTime = Date.now();
     
     for (let i = projectiles.length - 1; i >= 0; i--) {
@@ -2502,6 +2517,7 @@ function createAttackEffect(position) {
 function handlePlayerDeath() {
     // Set game over state
     gameOver = true;
+    window.gameOver = true;
     
     debugLog("Player has died!");
     
@@ -3042,6 +3058,9 @@ window.handleEnemyDeath = handleEnemyDeath;
 
 // Check for collisions
 function checkCollisions() {
+    // Don't check collisions if game is over
+    if (window.gameOver) return;
+    
     // Check projectile collisions with obstacles and enemies
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const projectile = projectiles[i];

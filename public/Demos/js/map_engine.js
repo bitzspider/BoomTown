@@ -110,6 +110,9 @@ class MapEngine {
             childIds: allMeshes.map(m => m.id)
         });
         
+        // Store model name in the metadata for attributes lookup
+        rootMesh.metadata = { ...rootMesh.metadata, modelName: container.modelName };
+        
         return rootMesh;
     }
 
@@ -117,6 +120,9 @@ class MapEngine {
         try {
             console.log('Adding new object:', objectData);
             const loadResult = await this.loadObject(objectData.model);
+            
+            // Store the model name in the container for reference
+            loadResult.modelName = objectData.model;
             
             // Create the instance
             const instance = this.createInstance(
@@ -127,12 +133,30 @@ class MapEngine {
                 objectData.id
             );
 
+            // Get and store merged attributes
+            const attributes = await this.getModelAttributes(objectData.model, objectData.id);
+            instance.metadata = { ...instance.metadata, attributes };
+            
             // Add to map data if not already present
             if (!this.mapData) {
                 this.mapData = { objects: [] };
             }
-            if (!this.mapData.objects.some(obj => obj.id === objectData.id)) {
-                this.mapData.objects.push(objectData);
+            
+            // If object already exists in mapData, update it, otherwise add it
+            const existingObjectIndex = this.mapData.objects.findIndex(obj => obj.id === objectData.id);
+            if (existingObjectIndex !== -1) {
+                // Update existing object but preserve any existing attributes
+                const existingAttributes = this.mapData.objects[existingObjectIndex].attributes || {};
+                this.mapData.objects[existingObjectIndex] = {
+                    ...objectData,
+                    attributes: { ...existingAttributes, ...objectData.attributes } // Merge attributes
+                };
+            } else {
+                // Add new object with attributes
+                this.mapData.objects.push({
+                    ...objectData,
+                    attributes: objectData.attributes || attributes // Use provided attributes or merged ones
+                });
             }
 
             // Verify the instance was created correctly
@@ -140,7 +164,8 @@ class MapEngine {
                 id: objectData.id,
                 position: instance.position,
                 isVisible: instance.getChildMeshes().every(mesh => mesh.isVisible),
-                childCount: instance.getChildMeshes().length
+                childCount: instance.getChildMeshes().length,
+                attributes: instance.metadata?.attributes
             });
 
             return instance;
@@ -189,6 +214,10 @@ class MapEngine {
                 });
 
                 const container = await this.loadObject(object.model);
+                
+                // Store the model name in the container for reference
+                container.modelName = object.model;
+                
                 const instance = this.createInstance(
                     container,
                     object.position,
@@ -198,13 +227,18 @@ class MapEngine {
                 );
 
                 if (instance) {
+                    // Get and store merged attributes
+                    const attributes = await this.getModelAttributes(object.model, object.id);
+                    instance.metadata = { ...instance.metadata, attributes };
+                    
                     console.log('Instance created at position:', {
                         id: object.id,
                         finalPosition: {
                             x: instance.position.x,
                             y: instance.position.y,
                             z: instance.position.z
-                        }
+                        },
+                        attributes: instance.metadata?.attributes
                     });
                 }
             } catch (error) {
@@ -220,7 +254,8 @@ class MapEngine {
                     x: instance.position.x,
                     y: instance.position.y,
                     z: instance.position.z
-                }
+                },
+                attributes: instance.metadata?.attributes
             }))
         );
     }
@@ -241,9 +276,8 @@ class MapEngine {
                     // Find the instance for this object
                     const instance = this.instances.get(obj.id);
                     
-                    // If instance exists, use its current position/rotation/scale
-                    // Otherwise use the stored data from mapData
-                    return {
+                    // Prepare the updated object data
+                    const updatedObj = {
                         id: obj.id,
                         model: obj.model, // Keep the original model name
                         position: instance ? {
@@ -262,6 +296,15 @@ class MapEngine {
                             z: instance.scaling.z
                         } : obj.scale
                     };
+
+                    // Preserve attributes from both the map data and instance metadata
+                    if (instance && instance.metadata && instance.metadata.attributes) {
+                        updatedObj.attributes = instance.metadata.attributes;
+                    } else if (obj.attributes) {
+                        updatedObj.attributes = obj.attributes;
+                    }
+
+                    return updatedObj;
                 }),
                 camera: {
                     position: {
@@ -340,5 +383,53 @@ class MapEngine {
 
     getMapData() {
         return this.mapData;
+    }
+    
+    // Get merged model attributes from all three sources:
+    // 1. GameConfig (from game_config.js) - default game settings
+    // 2. Model data (from model_data.json) - model-specific attributes
+    // 3. Map data (from map_data.json) - instance-specific overrides
+    async getModelAttributes(modelName, objectId) {
+        // Start with empty attributes object
+        let attributes = {};
+        
+        try {
+            // 1. Get attributes from GameConfig (if it exists in window)
+            if (window.GameConfig) {
+                // For enemy character models, add the enemy settings
+                if (modelName.toLowerCase().includes('character_enemy') || 
+                    modelName.toLowerCase().includes('character_hazmat') || 
+                    modelName.toLowerCase().includes('character_soldier')) {
+                    attributes = { ...attributes, ...window.GameConfig.enemies };
+                }
+            }
+            
+            // 2. Get model-specific attributes from model_data.json
+            try {
+                const modelDataResponse = await fetch('/model-data');
+                const modelData = await modelDataResponse.json();
+                
+                // Find the specific model in the data
+                const modelInfo = modelData.models.find(model => model.name === modelName);
+                if (modelInfo) {
+                    attributes = { ...attributes, ...modelInfo };
+                }
+            } catch (error) {
+                console.error('Error loading model data:', error);
+            }
+            
+            // 3. Get instance-specific attributes from map_data
+            if (this.mapData && this.mapData.objects && objectId) {
+                const objectData = this.mapData.objects.find(obj => obj.id === objectId);
+                if (objectData && objectData.attributes) {
+                    attributes = { ...attributes, ...objectData.attributes };
+                }
+            }
+            
+            return attributes;
+        } catch (error) {
+            console.error('Error getting model attributes:', error);
+            return attributes; // Return whatever we have even if there was an error
+        }
     }
 } 

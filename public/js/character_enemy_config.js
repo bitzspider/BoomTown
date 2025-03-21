@@ -111,10 +111,20 @@ class CharacterEnemyConfig {
 
         // Check if we have mappings for this model type
         if (animationMappings[modelType] && animationMappings[modelType][mode]) {
-            return animationMappings[modelType][mode];
+            const animation = animationMappings[modelType][mode];
+            console.log(`[ANIM CONFIG] Found specific mapping for ${modelType} in mode ${mode}: "${animation}"`);
+            return animation;
         }
 
-        // No model-specific mapping found
+        // Try fallback to generic model if no specific mapping found
+        if (mode && animationMappings["Character_Enemy"][mode]) {
+            const fallbackAnimation = animationMappings["Character_Enemy"][mode];
+            console.log(`[ANIM CONFIG] No specific mapping for ${modelType} in mode ${mode}, using fallback: "${fallbackAnimation}"`);
+            return fallbackAnimation;
+        }
+
+        // No mapping found
+        console.log(`[ANIM CONFIG] No animation mapping found for ${modelType} in mode ${mode}`);
         return null;
     }
 

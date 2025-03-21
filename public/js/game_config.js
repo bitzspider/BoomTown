@@ -6,8 +6,8 @@ function debugLog(message, forceShow = false) {
         return;
     }
     
-    // Only show informational logs if enabled
-    if (GameConfig.debug.showDebugInfoLog) {
+    // Only show informational logs if enabled - check if GameConfig exists first
+    if (window.GameConfig && window.GameConfig.debug && window.GameConfig.debug.showDebugInfoLog) {
         console.log(message);
     }
 }
@@ -18,10 +18,17 @@ window.debugLog = debugLog;
 // BoomTown Game Configuration
 // This file contains all game variables and settings that control gameplay mechanics
 
+// Initialize enemy_models as empty array
+let enemy_models = [];
+
+// Define GameConfig first with empty models array
 const GameConfig = {
     // Player settings
     player: {
         health: 100,
+        heal_rate: 10, // 4 healing pointss heal time
+        heal_time: 1000, // 1 second healing time (multiplied by heal_rate for actual healing time)
+        heal_cooldown: 2500, // 2.5 seconds before healing can start
         height: 1.8, // Player height in units
         moveSpeed: 0.1,
         runSpeed: 0.16,
@@ -56,13 +63,13 @@ const GameConfig = {
         death_anim_duration: 500, // ms
         hit_reaction_duration: 500, // ms
         search_duration: 5000, // ms - how long enemy searches for player
-        models: ["Character_Enemy.glb", "Character_Hazmat.glb", "Character_Soldier.glb"],
+        models: [], // Initialize as empty, will be populated from fetch
         max_enemies: 10, // Maximum number of enemies that can be spawned
         spawn_interval: 10000, // ms between enemy spawns
         
         // Movement settings
         idle_duration: 3000, // ms
-        move_speed: .7,
+        move_speed: .2,
         chase_speed: 1.0, // Faster when chasing
         rotation_speed: 0.15,
         
@@ -137,4 +144,42 @@ const GameConfig = {
 };
 
 // Make GameConfig globally accessible
-window.GameConfig = GameConfig; 
+window.GameConfig = GameConfig;
+
+// Load enemy models from model_data.json
+fetch('/Demos/model_data.json')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Failed to load model_data.json: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Filter models where type is character and sub_type is enemy
+        if (data && data.models && Array.isArray(data.models)) {
+            enemy_models = data.models
+                .filter(model => model.type === "character" && model.sub_type === "enemy")
+                .map(model => model.name);
+            
+            // Update GameConfig with the loaded models
+            GameConfig.enemies.models = enemy_models;
+            console.log("Successfully loaded enemy models:", enemy_models);
+            
+            // Dispatch an event to notify that models are loaded
+            const event = new CustomEvent('enemyModelsLoaded', { detail: enemy_models });
+            window.dispatchEvent(event);
+        } else {
+            throw new Error('Invalid model data structure');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading model data:', error);
+        // Fallback to default models if fetch fails
+        enemy_models = [
+            "Character_Enemy.glb",
+            "Character_Hazmat.glb",
+            "Character_Soldier.glb"
+        ];
+        GameConfig.enemies.models = enemy_models;
+        console.warn("Using default enemy models due to fetch error");
+    }); 

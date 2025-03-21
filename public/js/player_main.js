@@ -95,15 +95,37 @@ const keys = {
 };
 
 // Mouse control
-var mouseSensitivity = GameConfig.player.mouseSensitivity;
+var mouseSensitivity = 0.002; // Default value
 var isPointerLocked = false;
 var pointerLockPaused = false;
 
 // Shooting variables
 var canShoot = true;
-var shootCooldown = GameConfig.weapons.shootCooldown; // ms
+var shootCooldown = 500; // Default value in ms
 var projectiles = [];
 var lastShootTime = 0;
+
+// Initialize from GameConfig when it becomes available
+function applyGameConfig() {
+    if (window.GameConfig) {
+        mouseSensitivity = window.GameConfig.player.mouseSensitivity;
+        shootCooldown = window.GameConfig.weapons.shootCooldown;
+        console.log("Updated variables from GameConfig");
+    }
+}
+
+// Update values when GameConfig is available
+document.addEventListener("DOMContentLoaded", function() {
+    const configCheckInterval = setInterval(() => {
+        if (window.GameConfig) {
+            applyGameConfig();
+            clearInterval(configCheckInterval);
+        }
+    }, 100);
+    
+    // Clear interval after timeout to prevent infinite checking
+    setTimeout(() => clearInterval(configCheckInterval), 5000);
+});
 
 // Make projectiles array globally accessible
 window.projectiles = projectiles;
@@ -114,6 +136,12 @@ var playerAmmo = GameConfig.weapons.defaultAmmo;
 var maxAmmo = GameConfig.weapons.maxAmmo;
 var lastHitTime = 0;
 var hitCooldown = GameConfig.player.hitCooldown; // 1 second cooldown between hits
+
+// Health recovery variables
+var isHealing = false;
+var healingTimer = null;
+var healCooldownTimer = null;
+var lastDamageTime = 0;
 
 // Enemy variables
 var enemies = {};
@@ -1485,6 +1513,12 @@ function updatePlayer() {
     
     // Update HUD
     updateHUD();
+    
+    // Check if we should start healing (if not already healing and cooldown has passed)
+    if (!isHealing && !healCooldownTimer && playerHealth < GameConfig.player.health && 
+        Date.now() - lastDamageTime >= GameConfig.player.heal_cooldown) {
+        startHealing();
+    }
 }
 
 // Check for collisions with objects excluding the ground
@@ -1585,6 +1619,50 @@ function updateHUD() {
             ammoDisplay.style.color = "#ff0000"; // Red for no ammo
         }
     }
+}
+
+// Start the healing process after cooldown
+function startHealing() {
+    // Only start healing if player isn't at full health
+    if (playerHealth < GameConfig.player.health && !isHealing) {
+        healCooldownTimer = null;
+        isHealing = true;
+        healPlayer();
+    }
+}
+
+// Handle player healing process
+function healPlayer() {
+    // Get healing rate from config
+    const healRate = GameConfig.player.heal_rate;
+    const healTime = GameConfig.player.heal_time;
+    
+    // Calculate time per tick (we'll heal every healTime milliseconds)
+    const tickInterval = healTime;
+    
+    function healTick() {
+        // Check if player has taken damage since healing started
+        if (Date.now() - lastDamageTime < GameConfig.player.heal_cooldown) {
+            isHealing = false;
+            return;
+        }
+        
+        // Heal the player by heal_rate points
+        playerHealth = Math.min(GameConfig.player.health, playerHealth + healRate);
+        updateHUD();
+        
+        // If still not at full health, schedule next healing
+        if (playerHealth < GameConfig.player.health) {
+            healingTimer = setTimeout(healTick, tickInterval);
+        } else {
+            // Stop healing if at full health
+            isHealing = false;
+            healingTimer = null;
+        }
+    }
+    
+    // Start the first healing tick
+    healTick();
 }
 
 // Shoot projectile function
@@ -1818,6 +1896,22 @@ function updateProjectiles() {
             if (distanceToPlayer < 1.0) {
                 debugLog("Player hit!");
                 playerHealth -= 20; // Fixed damage amount
+                lastDamageTime = Date.now();
+                
+                // Cancel any healing in progress
+                if (isHealing) {
+                    clearTimeout(healingTimer);
+                    isHealing = false;
+                }
+                
+                // Cancel any cooldown timer
+                if (healCooldownTimer) {
+                    clearTimeout(healCooldownTimer);
+                }
+                
+                // Start cooldown timer for healing
+                healCooldownTimer = setTimeout(startHealing, GameConfig.player.heal_cooldown);
+                
                 createHitEffect(playerMesh.position.clone());
                 cleanupProjectile(projectile);
                 projectiles.splice(i, 1);
@@ -2259,6 +2353,21 @@ function updateEnemies() {
                 debugLog(`[MELEE] Enemy ${enemyId} melee attack at distance ${distanceToPlayer.toFixed(2)}!`);
                 playerHealth -= 10; // Melee damage
                 lastHitTime = currentTime;
+                lastDamageTime = currentTime;
+                
+                // Cancel any healing in progress
+                if (isHealing) {
+                    clearTimeout(healingTimer);
+                    isHealing = false;
+                }
+                
+                // Cancel any cooldown timer
+                if (healCooldownTimer) {
+                    clearTimeout(healCooldownTimer);
+                }
+                
+                // Start cooldown timer for healing
+                healCooldownTimer = setTimeout(startHealing, GameConfig.player.heal_cooldown);
                 
                 // Update HUD
                 updateHUD();
@@ -2313,14 +2422,29 @@ function checkAmmoPickups(enemy) {
 
 // Handle enemy death
 function handleEnemyDeath(enemyId) {
+    // Safety check for a valid enemyId
+    if (!enemyId) {
+        debugLog("Warning: handleEnemyDeath called with undefined enemyId", true);
+        return;
+    }
+    
     const enemy = enemies[enemyId];
-    if (!enemy) return;
+    if (!enemy) {
+        debugLog(`Enemy ${enemyId} not found in player_main.js enemies object`, true);
+        return;
+    }
     
     debugLog(`Enemy ${enemyId} death handling in player_main.js`);
     
     // Show a final damage indicator with "KILLED" text if the function exists
-    if (window.createKilledIndicator) {
-        createKilledIndicator(enemy.mesh.position.clone());
+    if (window.createKilledIndicator && enemy.mesh && enemy.mesh.position) {
+        // Create a new Vector3 position to avoid reference issues
+        const position = new BABYLON.Vector3(
+            enemy.mesh.position.x,
+            enemy.mesh.position.y,
+            enemy.mesh.position.z
+        );
+        createKilledIndicator(position);
     }
     
     // Remove from our tracking
@@ -2329,7 +2453,7 @@ function handleEnemyDeath(enemyId) {
     // Spawn a new enemy after a random delay
     const respawnDelay = GameConfig.enemies.respawn_min_time + 
                          Math.random() * (GameConfig.enemies.respawn_max_time - GameConfig.enemies.respawn_min_time);
-    debugLog(`Enemy will respawn in ${(respawnDelay/1000).toFixed(1)} seconds`);
+    debugLog(`Enemy ${enemyId} will respawn in ${(respawnDelay/1000).toFixed(1)} seconds`);
     
     setTimeout(() => {
         spawnEnemy();
@@ -2463,6 +2587,21 @@ function attackPlayer(enemy, damage) {
     
     // Apply damage to player
     playerHealth -= damage;
+    lastDamageTime = Date.now();
+    
+    // Cancel any healing in progress
+    if (isHealing) {
+        clearTimeout(healingTimer);
+        isHealing = false;
+    }
+    
+    // Cancel any cooldown timer
+    if (healCooldownTimer) {
+        clearTimeout(healCooldownTimer);
+    }
+    
+    // Start cooldown timer for healing
+    healCooldownTimer = setTimeout(startHealing, GameConfig.player.heal_cooldown);
     
     // Update HUD
     updateHUD();
@@ -2843,75 +2982,75 @@ function spawnEnemy() {
 
 // Helper function to spawn an enemy at a specific position
 function spawnEnemyAtPosition(position, mapProperties = null) {
-    // Generate a unique ID for this enemy
-    const enemyId = 'enemy_' + Date.now();
-    
     // Select a random enemy model from the available models in GameConfig
-    const enemyModels = GameConfig.enemies.models;
+    const enemyModels = GameConfig.enemies.models || ["Character_Enemy.glb", "Character_Hazmat.glb", "Character_Soldier.glb"];
+    
+    // Safety check to make sure models are available
+    if (!enemyModels || enemyModels.length === 0) {
+        debugLog("No enemy models defined in GameConfig, using default model", true);
+        // Use default model as fallback
+        const defaultModel = "Character_Enemy.glb";
+        loadDefaultEnemy(position, defaultModel, mapProperties);
+        return;
+    }
+    
     const randomModel = enemyModels[Math.floor(Math.random() * enemyModels.length)];
     
-    // Load model data to get model-specific properties
-    fetch('/Demos/model_data.json')
-        .then(response => response.json())
-        .then(modelData => {
-            // Find model details for the selected model
-            const modelDetails = modelData.models.find(model => 
-                model.name === randomModel && 
-                model.type === 'character' && 
-                model.sub_type === 'enemy'
-            );
-            
-            // Create merged configuration
-            let mergedConfig = { ...modelDetails };
-            
-            // Add map-specific properties if provided
-            if (mapProperties) {
-                Object.keys(mapProperties).forEach(key => {
-                    mergedConfig[key] = mapProperties[key];
-                });
-            }
-            
-            // Load the enemy model using the controller with proper config hierarchy
-            loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, mergedConfig, (enemyData) => {
-                // Store the enemy data with the controller's ID
-                const enemyId = enemyData.id;
-                enemies[enemyId] = {
-                    id: enemyId,
-                    mesh: enemyData.mesh,
-                    skeleton: enemyData.skeleton,
-                    headHitbox: enemyData.headHitbox,
-                    bodyHitbox: enemyData.bodyHitbox,
-                    health: mergedConfig ? mergedConfig.health : 100,
-                    lastHitTime: 0,
-                    hitCooldown: 1000
-                };
-                
-                debugLog("Enemy spawned successfully with ID: " + enemyId);
-                
-                // Set the enemy to patrol state using the controller
-                setEnemyState(enemyId, "PATROL");
-            });
-        })
-        .catch(error => {
-            debugLog(`Error loading model data for spawning enemy: ${error}`, true);
-            
-            // Fall back to default spawning without model data
-            loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, null, (enemyData) => {
-                const enemyId = enemyData.id;
-                enemies[enemyId] = {
-                    id: enemyId,
-                    mesh: enemyData.mesh,
-                    skeleton: enemyData.skeleton,
-                    headHitbox: enemyData.headHitbox,
-                    bodyHitbox: enemyData.bodyHitbox,
-                    health: 100,
-                    lastHitTime: 0,
-                    hitCooldown: 1000
-                };
-                
-                setEnemyState(enemyId, "PATROL");
-            });
-        });
+    // Create a merged configuration from mapProperties
+    let mergedConfig = {
+        health: GameConfig.enemies.health,
+        // Add other default properties from GameConfig.enemies as needed
+    };
+    
+    // Add map-specific properties if provided
+    if (mapProperties) {
+        mergedConfig = { ...mergedConfig, ...mapProperties };
+    }
+    
+    // Load the enemy model using the controller with proper config hierarchy
+    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, mergedConfig, (enemyData) => {
+        if (!enemyData) {
+            debugLog("Failed to load enemy model: " + randomModel, true);
+            return;
+        }
+        
+        // Store the enemy data with the controller's ID
+        const enemyId = enemyData.id;
+        enemies[enemyId] = {
+            id: enemyId,
+            mesh: enemyData.mesh,
+            skeleton: enemyData.skeleton,
+            headHitbox: enemyData.headHitbox,
+            bodyHitbox: enemyData.bodyHitbox,
+            health: mergedConfig.health,
+            lastHitTime: 0,
+            hitCooldown: 1000
+        };
+        
+        debugLog("Enemy spawned successfully with ID: " + enemyId);
+        
+        // Set the enemy to patrol state using the controller
+        setEnemyState(enemyId, "PATROL");
+    });
+}
+
+// Helper function to load a default enemy when model data is unavailable
+function loadDefaultEnemy(position, modelName, mapProperties) {
+    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), modelName, null, (enemyData) => {
+        const enemyId = enemyData.id;
+        enemies[enemyId] = {
+            id: enemyId,
+            mesh: enemyData.mesh,
+            skeleton: enemyData.skeleton,
+            headHitbox: enemyData.headHitbox,
+            bodyHitbox: enemyData.bodyHitbox,
+            health: 100,
+            lastHitTime: 0,
+            hitCooldown: 1000
+        };
+        
+        setEnemyState(enemyId, "PATROL");
+    });
 }
 
 // Function to get a random spawn point
@@ -3000,57 +3139,74 @@ function updateHitboxVisibility() {
 
 // Add new function to check hitbox collisions
 function checkHitboxCollision(projectilePosition, hitbox) {
-    if (!hitbox) {
-        console.warn("Hitbox is null or undefined");
+    // Safety check for valid inputs
+    if (!projectilePosition || !hitbox) {
         return false;
     }
     
-    // Get hitbox world position
-    const hitboxWorldPos = hitbox.getAbsolutePosition();
-    
-    // Get hitbox dimensions from its scaling
-    const hitboxScale = hitbox.scaling;
-    
-    // Get the original hitbox dimensions from when it was created
-    let hitboxWidth, hitboxHeight, hitboxDepth;
-    
-    // Check if this is a head or body hitbox based on the mesh name
-    if (hitbox.name.includes("head")) {
-        hitboxWidth = 0.4 * hitboxScale.x;  // Half of 0.8
-        hitboxHeight = 0.4 * hitboxScale.y; // Half of 0.8
-        hitboxDepth = 0.4 * hitboxScale.z;  // Half of 0.8
-    } else if (hitbox.name.includes("body")) {
-        hitboxWidth = 0.5 * hitboxScale.x;  // Half of 1.0
-        hitboxHeight = 0.75 * hitboxScale.y; // Half of 1.5
-        hitboxDepth = 0.5 * hitboxScale.z;  // Half of 1.0
-    } else {
-        // Default to a reasonable size if we can't determine the type
-        hitboxWidth = 0.5 * hitboxScale.x;
-        hitboxHeight = 0.75 * hitboxScale.y;
-        hitboxDepth = 0.5 * hitboxScale.z;
+    // Check if the hitbox has been disposed or is in an invalid state
+    if (hitbox.isDisposed || !hitbox.getBoundingInfo) {
+        return false;
     }
     
-    // Calculate distances
-    const dx = Math.abs(projectilePosition.x - hitboxWorldPos.x);
-    const dy = Math.abs(projectilePosition.y - hitboxWorldPos.y);
-    const dz = Math.abs(projectilePosition.z - hitboxWorldPos.z);
-    
-    // Check if projectile is within hitbox bounds
-    const isHit = (
-        dx <= hitboxWidth &&
-        dy <= hitboxHeight &&
-        dz <= hitboxDepth
-    );
-    
-    // Log collision check occasionally (to avoid console spam)
-    if (Math.random() < 0.01 || isHit) {
-        debugLog(`[HITBOX] Checking collision with ${hitbox.name}: ` +
-                   `Distance: (${dx.toFixed(2)}, ${dy.toFixed(2)}, ${dz.toFixed(2)}), ` +
-                   `Bounds: (${hitboxWidth.toFixed(2)}, ${hitboxHeight.toFixed(2)}, ${hitboxDepth.toFixed(2)}), ` +
-                   `Result: ${isHit ? 'HIT' : 'MISS'}`);
+    try {
+        // Get hitbox world matrix (transforms local coordinates to world)
+        const hitboxWorldMatrix = hitbox.getWorldMatrix();
+        
+        // Get hitbox world position
+        const hitboxWorldPos = new BABYLON.Vector3();
+        hitboxWorldPos.x = hitboxWorldMatrix.m[12];
+        hitboxWorldPos.y = hitboxWorldMatrix.m[13];
+        hitboxWorldPos.z = hitboxWorldMatrix.m[14];
+        
+        // Get hitbox scaling
+        const hitboxScale = hitbox.scaling;
+        
+        // Determine hitbox dimensions based on mesh name
+        let hitboxWidth, hitboxHeight, hitboxDepth;
+        
+        // Check if this is a head or body hitbox based on the mesh name
+        if (hitbox.name.includes("head")) {
+            hitboxWidth = 0.4 * hitboxScale.x;  // Half of 0.8
+            hitboxHeight = 0.4 * hitboxScale.y; // Half of 0.8
+            hitboxDepth = 0.4 * hitboxScale.z;  // Half of 0.8
+        } else if (hitbox.name.includes("body")) {
+            hitboxWidth = 0.5 * hitboxScale.x;  // Half of 1.0
+            hitboxHeight = 0.75 * hitboxScale.y; // Half of 1.5
+            hitboxDepth = 0.5 * hitboxScale.z;  // Half of 1.0
+        } else {
+            // Default to a reasonable size if we can't determine the type
+            hitboxWidth = 0.5 * hitboxScale.x;
+            hitboxHeight = 0.75 * hitboxScale.y;
+            hitboxDepth = 0.5 * hitboxScale.z;
+        }
+        
+        // Calculate distances
+        const dx = Math.abs(projectilePosition.x - hitboxWorldPos.x);
+        const dy = Math.abs(projectilePosition.y - hitboxWorldPos.y);
+        const dz = Math.abs(projectilePosition.z - hitboxWorldPos.z);
+        
+        // Check if projectile is within hitbox bounds
+        const isHit = (
+            dx <= hitboxWidth &&
+            dy <= hitboxHeight &&
+            dz <= hitboxDepth
+        );
+        
+        // Log collision check occasionally (to avoid console spam)
+        if (Math.random() < 0.01 || isHit) {
+            debugLog(`[HITBOX] Checking collision with ${hitbox.name}: ` +
+                       `Distance: (${dx.toFixed(2)}, ${dy.toFixed(2)}, ${dz.toFixed(2)}), ` +
+                       `Bounds: (${hitboxWidth.toFixed(2)}, ${hitboxHeight.toFixed(2)}, ${hitboxDepth.toFixed(2)}), ` +
+                       `Result: ${isHit ? 'HIT' : 'MISS'}`);
+        }
+        
+        return isHit;
+    } catch (error) {
+        // If any error occurs during collision detection, log it and return false
+        debugLog(`Error during hitbox collision check: ${error.message}`, true);
+        return false;
     }
-    
-    return isHit;
 }
 
 // Make handleEnemyDeath globally accessible
@@ -3077,15 +3233,22 @@ function checkCollisions() {
         if (!projectile.isEnemyProjectile) {
             for (const enemyId in enemies) {
                 const enemy = enemies[enemyId];
+                // Skip if enemy is invalid or already dead
                 if (!enemy || enemy.health <= 0) continue;
                 
-                // Check collision with enemy hitboxes
-                if (enemy.headHitbox && checkHitboxCollision(projectile.mesh.position, enemy.headHitbox)) {
+                // Skip if enemy doesn't have valid hitboxes
+                if (!enemy.headHitbox && !enemy.bodyHitbox) continue;
+                
+                let hitRegistered = false;
+                
+                // Check collision with enemy hitboxes - head first for headshot damage
+                if (enemy.headHitbox && !enemy.headHitbox.isDisposed && checkHitboxCollision(projectile.mesh.position, enemy.headHitbox)) {
                     debugLog(`Enemy ${enemyId} headshot!`);
                     enemy.health -= 50;
                     createHitEffect(projectile.mesh.position);
                     cleanupProjectile(projectile);
                     projectiles.splice(i, 1);
+                    hitRegistered = true;
                     
                     if (enemy.health <= 0) {
                         handleEnemyDeath(enemyId);
@@ -3093,7 +3256,8 @@ function checkCollisions() {
                     break;
                 }
                 
-                if (enemy.bodyHitbox && checkHitboxCollision(projectile.mesh.position, enemy.bodyHitbox)) {
+                // Check body hit if head wasn't hit
+                if (!hitRegistered && enemy.bodyHitbox && !enemy.bodyHitbox.isDisposed && checkHitboxCollision(projectile.mesh.position, enemy.bodyHitbox)) {
                     debugLog(`Enemy ${enemyId} body shot!`);
                     enemy.health -= 25;
                     createHitEffect(projectile.mesh.position);

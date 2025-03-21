@@ -130,6 +130,12 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
     // Set the global scene reference
     scene = sceneParam;
     
+    // Safety check for scene
+    if (!scene) {
+        console.error("Scene not provided to loadEnemyModel");
+        return;
+    }
+    
     // Generate a unique spawn position if none provided
     if (!position) {
         position = generateRandomSpawnPosition();
@@ -172,10 +178,8 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         burstFireInterval: GameConfig.enemies.burst_fire_interval
     };
     
-    // Apply model-specific overrides from modelDetails if available
+    // Overwrite default settings with model-specific settings if provided
     if (modelDetails) {
-        console.log(`Applying model-specific settings for ${model}:`, modelDetails);
-        // Override default settings with model-specific ones
         Object.keys(modelDetails).forEach(key => {
             // Only override properties that exist in enemyConfig and aren't 'name', 'type', 'sub_type', etc.
             if (key in enemyConfig || ['health', 'moveSpeed', 'chaseSpeed', 'detectionRange'].includes(key)) {
@@ -185,8 +189,14 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
     }
     
     try {
+        console.log(`Attempting to load model from ${modelPath}${model}`);
         const result = await BABYLON.SceneLoader.ImportMeshAsync("", modelPath, model, scene);
         console.log("Enemy model loaded successfully:", result);
+        
+        // Safety check for empty result
+        if (!result || !result.meshes || result.meshes.length === 0) {
+            throw new Error(`Model ${model} loaded but no meshes found`);
+        }
         
         const enemyId = generateUniqueId();
         const enemyRoot = result.meshes[0];
@@ -195,23 +205,28 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         const enemyAnimations = {};
         console.log(`=== AVAILABLE ANIMATIONS FOR ENEMY ${enemyId} (${modelType}) ===`);
         
-        // Clone each animation group with a unique name for this enemy
-        result.animationGroups.forEach(originalAnimGroup => {
-            // Create a clone with unique name for this enemy instance
-            const uniqueName = `${originalAnimGroup.name}_${enemyId}`;
-            const clonedGroup = originalAnimGroup.clone();
-            clonedGroup.name = uniqueName;
+        // Check for animations
+        if (!result.animationGroups || result.animationGroups.length === 0) {
+            console.warn(`No animation groups found for model ${model}`);
+        } else {
+            // Clone each animation group with a unique name for this enemy instance
+            result.animationGroups.forEach(originalAnimGroup => {
+                // Create a clone with unique name for this enemy instance
+                const uniqueName = `${originalAnimGroup.name}_${enemyId}`;
+                const clonedGroup = originalAnimGroup.clone();
+                clonedGroup.name = uniqueName;
+                
+                // Store in the enemy's animation collection
+                enemyAnimations[originalAnimGroup.name] = clonedGroup;
+                console.log(`Animation cloned for ${modelType}: "${originalAnimGroup.name}" -> "${uniqueName}"`);
+                
+                // Stop the original to ensure it doesn't interfere
+                originalAnimGroup.stop();
+            });
             
-            // Store in the enemy's animation collection
-            enemyAnimations[originalAnimGroup.name] = clonedGroup;
-            console.log(`Animation cloned for ${modelType}: "${originalAnimGroup.name}" -> "${uniqueName}"`);
-            
-            // Stop the original to ensure it doesn't interfere
-            originalAnimGroup.stop();
-        });
-        
-        // List all available animations to help with debugging
-        listAvailableAnimations(enemyAnimations);
+            // List all available animations to help with debugging
+            listAvailableAnimations(enemyAnimations);
+        }
         
         // Create transform node for positioning
         const enemyTransform = new BABYLON.TransformNode(`enemy_${enemyId}_root`, scene);
@@ -376,8 +391,101 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         // Return the enemy ID for reference
         return enemyId;
     } catch (error) {
-        console.error("Error loading enemy model:", error);
-        return null;
+        console.error(`Error loading enemy model ${model}:`, error);
+        
+        // Create a fallback cube mesh as the enemy if model loading fails
+        try {
+            const enemyId = generateUniqueId();
+            console.log(`Creating fallback mesh for failed model load with ID: ${enemyId}`);
+            
+            // Create a simple box as fallback
+            const fallbackMesh = BABYLON.MeshBuilder.CreateBox(`enemy_fallback_${enemyId}`, {
+                width: 1, 
+                height: 2, 
+                depth: 1
+            }, scene);
+            
+            // Create a material for the fallback mesh
+            const fallbackMaterial = new BABYLON.StandardMaterial(`fallback_material_${enemyId}`, scene);
+            fallbackMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
+            fallbackMesh.material = fallbackMaterial;
+            
+            // Create transform node for positioning
+            const enemyTransform = new BABYLON.TransformNode(`enemy_${enemyId}_root`, scene);
+            fallbackMesh.parent = enemyTransform;
+            
+            // Position at spawn point
+            enemyTransform.position = position;
+            
+            // Create simple hitboxes
+            const headHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_head_${enemyId}`, {
+                width: 0.6, height: 0.6, depth: 0.6
+            }, scene);
+            const bodyHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_body_${enemyId}`, {
+                width: 0.9, height: 1.4, depth: 1.0
+            }, scene);
+            
+            // Set hitbox materials
+            const headMaterial = new BABYLON.StandardMaterial(`hitbox_head_mat_${enemyId}`, scene);
+            headMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0);
+            headMaterial.alpha = 0.3;
+            headHitbox.material = headMaterial;
+            
+            const bodyMaterial = new BABYLON.StandardMaterial(`hitbox_body_mat_${enemyId}`, scene);
+            bodyMaterial.diffuseColor = new BABYLON.Color3(1, 0.5, 0);
+            bodyMaterial.alpha = 0.3;
+            bodyHitbox.material = bodyMaterial;
+            
+            // Configure hitboxes
+            headHitbox.parent = enemyTransform;
+            bodyHitbox.parent = enemyTransform;
+            headHitbox.position.y = 1.7;
+            bodyHitbox.position.y = 0.9;
+            
+            headHitbox.isVisible = GameConfig.debug.showHitboxes;
+            bodyHitbox.isVisible = GameConfig.debug.showHitboxes;
+            
+            // Add to loadedEnemies with empty animations object
+            loadedEnemies[enemyId] = {
+                id: enemyId,
+                root: fallbackMesh,
+                transform: enemyTransform,
+                skeleton: null,
+                state: "IDLE",
+                stateStartTime: Date.now(),
+                headHitbox: headHitbox,
+                bodyHitbox: bodyHitbox,
+                health: enemyConfig.health,
+                animations: {}, // Empty animations object
+                modelType: "Fallback"
+            };
+            
+            // Initialize Yuka behavior for the fallback enemy
+            initializeEnemyPathfinding(enemyId, enemyConfig);
+            
+            // Set up observer for updating state
+            setupEnemyObserver(enemyId);
+            
+            // Call the callback with the fallback enemy data
+            if (callback) {
+                callback({
+                    id: enemyId,
+                    mesh: fallbackMesh,
+                    skeleton: null,
+                    headHitbox: headHitbox,
+                    bodyHitbox: bodyHitbox
+                });
+            }
+            
+            return enemyId;
+        }
+        catch (fallbackError) {
+            console.error("Failed to create fallback enemy:", fallbackError);
+            if (callback) {
+                callback(null); // Indicate failure to caller
+            }
+            return null;
+        }
     }
 }
 
@@ -994,7 +1102,7 @@ function playEnemyAnimation(enemyId, animationName) {
         // Check if any hit animation exists
         for (const variant of hitAnimationVariants) {
             if (availableAnimations[variant]) {
-                console.log(`Found hit reaction animation: "${variant}"`);
+                console.log(`Found hit reaction animation: "${variant}" for enemy ${enemyId}`);
                 animationName = variant;
                 break;
             }
@@ -1003,8 +1111,8 @@ function playEnemyAnimation(enemyId, animationName) {
             const matchingKey = Object.keys(availableAnimations).find(key => 
                 key.toLowerCase().includes(variant.toLowerCase()));
             if (matchingKey) {
-                console.log(`Found partial hit reaction animation match: "${matchingKey}"`);
-                animationName = matchingKey;
+                console.log(`Found partial hit reaction animation match: "${matchingKey}" for enemy ${enemyId}`);
+                animationName = variant;
                 break;
             }
         }
@@ -1012,145 +1120,68 @@ function playEnemyAnimation(enemyId, animationName) {
     
     let animation = null;
     
-    // First, check if any animation key contains "/walk", "/idle", or "/run"
-    // This handles "armature/walk" style animation names the user mentioned
-    const slashVariants = ["/walk", "/run", "/idle", "/death"];
-    if (animationName.toLowerCase() === "walk" || animationName.toLowerCase() === "run" || 
-        animationName.toLowerCase() === "idle" || animationName.toLowerCase() === "death") {
-        for (const variant of slashVariants) {
-            if (variant.includes(animationName.toLowerCase())) {
-                const slashKey = Object.keys(availableAnimations).find(key => 
-                    key.toLowerCase().includes(variant));
-                if (slashKey) {
-                    animation = availableAnimations[slashKey];
-                    console.log(`[ANIMATION] Found slash-style animation: "${slashKey}" for "${animationName}"`);
+    // Try to find exact animation match first
+    if (availableAnimations[animationName]) {
+        animation = availableAnimations[animationName];
+        console.log(`Found exact animation match: "${animationName}" for enemy ${enemyId}`);
+    } else {
+        // Check for model-specific fallbacks
+        if (CHARACTER_ANIMATION_FALLBACKS[modelType] && CHARACTER_ANIMATION_FALLBACKS[modelType][animationName]) {
+            // Try each fallback animation name in order
+            const fallbacks = CHARACTER_ANIMATION_FALLBACKS[modelType][animationName];
+            console.log(`Trying fallback animations for ${modelType} ${animationName}: ${fallbacks.join(', ')}`);
+            
+            for (const fallbackAnim of fallbacks) {
+                if (availableAnimations[fallbackAnim]) {
+                    animation = availableAnimations[fallbackAnim];
+                    console.log(`Found fallback animation: "${fallbackAnim}" for "${animationName}" on enemy ${enemyId}`);
                     break;
                 }
             }
         }
-    }
-    
-    // If no animation found yet, try extensive animation name variants
-    if (!animation) {
-        // Create a more extensive list of animation name variants based on model type
-        const animationVariants = [];
         
-        // Add original animation name
-        animationVariants.push(animationName);
-        
-        // Add armature variants (with and without capitalization)
-        animationVariants.push(`armature/${animationName.toLowerCase()}`);
-        animationVariants.push(`Armature/${animationName.toLowerCase()}`);
-        animationVariants.push(`armature/${animationName}`);
-        animationVariants.push(`Armature/${animationName}`);
-        
-        // Add model-specific variants
-        animationVariants.push(`${modelType}|${animationName}`);
-        animationVariants.push(`${animationName}_${modelType}`);
-        
-        // Add standard variants
-        animationVariants.push("CharacterArmature|" + animationName);
-        animationVariants.push(animationName.toLowerCase());
-        animationVariants.push("CharacterArmature|" + animationName.toLowerCase());
-        
-        // Add common animation name variations
-        if (animationName.toLowerCase() === "walk") {
-            animationVariants.push("Walk_Shoot");
-            animationVariants.push("Walking");
-            animationVariants.push("walk");
-            animationVariants.push("walkcycle");
-            animationVariants.push("WalkCycle");
-            animationVariants.push("Walk Cycle");
-        } else if (animationName.toLowerCase() === "run") {
-            animationVariants.push("Run_Shoot");
-            animationVariants.push("Run_Gun");
-            animationVariants.push("Running");
-            animationVariants.push("run");
-            animationVariants.push("runcycle");
-            animationVariants.push("RunCycle");
-            animationVariants.push("Run Cycle");
-        } else if (animationName.toLowerCase() === "idle") {
-            animationVariants.push("Idle_Shoot");
-            animationVariants.push("Standing");
-            animationVariants.push("idle");
-            animationVariants.push("stand");
-            animationVariants.push("Stand");
-        } else if (animationName.toLowerCase() === "death") {
-            animationVariants.push("Die");
-            animationVariants.push("Dead");
-            animationVariants.push("death");
-            animationVariants.push("dying");
-            animationVariants.push("Dying");
-        }
-        
-        console.log(`[ANIMATION] Trying animation variants for ${animationName}: ${animationVariants.join(', ')}`);
-        
-        // Try all animation name variants
-        for (const variant of animationVariants) {
-            // Try exact match
-            if (availableAnimations[variant]) {
-                animation = availableAnimations[variant];
-                console.log(`[ANIMATION] Found exact animation match: "${variant}"`);
-                break;
-            }
+        // If still no animation found, try partial matching
+        if (!animation) {
+            const lowerName = animationName.toLowerCase();
+            const possibleKey = Object.keys(availableAnimations).find(key => 
+                key.toLowerCase().includes(lowerName));
             
-            // Try partial match - this helps with prefix/suffix variations
-            const matchingKey = Object.keys(availableAnimations).find(key => 
-                key.toLowerCase().includes(variant.toLowerCase()));
-            if (matchingKey) {
-                animation = availableAnimations[matchingKey];
-                console.log(`[ANIMATION] Found partial animation match: "${matchingKey}" for "${variant}"`);
-                break;
+            if (possibleKey) {
+                animation = availableAnimations[possibleKey];
+                console.log(`Found partial animation match: "${possibleKey}" for requested "${animationName}" for enemy ${enemyId}`);
             }
         }
-    }
-    
-    // If still no animation found, try a generic approach by simple string matching
-    if (!animation) {
-        console.log(`[ANIMATION] No specific match found, trying generic category matching`);
-        const lowerAnimName = animationName.toLowerCase();
         
-        if (lowerAnimName.includes("walk")) {
-            // Look for any walking-related animation
-            const walkKey = Object.keys(availableAnimations).find(key => 
-                key.toLowerCase().includes("walk") || 
-                key.toLowerCase().includes("run") ||
-                key.toLowerCase().includes("move"));
-                
-            if (walkKey) {
-                animation = availableAnimations[walkKey];
-                console.log(`[ANIMATION] Found walking animation by category: "${walkKey}"`);
+        // If still no animation, try a generic fallback based on type
+        if (!animation) {
+            // For walking-type animations
+            if (animationName.toLowerCase().includes('walk') || animationName.toLowerCase().includes('patrol')) {
+                const walkKey = Object.keys(availableAnimations).find(key => 
+                    key.toLowerCase().includes('walk') || key.toLowerCase().includes('run'));
+                if (walkKey) {
+                    animation = availableAnimations[walkKey];
+                    console.log(`Using generic walk/run animation "${walkKey}" as fallback for "${animationName}"`);
+                }
+            } 
+            // For running-type animations
+            else if (animationName.toLowerCase().includes('run') || animationName.toLowerCase().includes('chase')) {
+                const runKey = Object.keys(availableAnimations).find(key => 
+                    key.toLowerCase().includes('run'));
+                if (runKey) {
+                    animation = availableAnimations[runKey];
+                    console.log(`Using generic run animation "${runKey}" as fallback for "${animationName}"`);
+                }
             }
-        } else if (lowerAnimName.includes("idle")) {
-            // Look for any idle/standing animation
-            const idleKey = Object.keys(availableAnimations).find(key => 
-                key.toLowerCase().includes("idle") || 
-                key.toLowerCase().includes("stand"));
-                
-            if (idleKey) {
-                animation = availableAnimations[idleKey];
-                console.log(`[ANIMATION] Found idle animation by category: "${idleKey}"`);
-            }
-        } else if (lowerAnimName.includes("death") || lowerAnimName.includes("die")) {
-            // Look for any death animation
-            const deathKey = Object.keys(availableAnimations).find(key => 
-                key.toLowerCase().includes("death") || 
-                key.toLowerCase().includes("die") ||
-                key.toLowerCase().includes("dead"));
-                
-            if (deathKey) {
-                animation = availableAnimations[deathKey];
-                console.log(`[ANIMATION] Found death animation by category: "${deathKey}"`);
+            // For idle animations
+            else if (animationName.toLowerCase().includes('idle') || animationName.toLowerCase().includes('stand')) {
+                const idleKey = Object.keys(availableAnimations).find(key => 
+                    key.toLowerCase().includes('idle') || key.toLowerCase().includes('stand'));
+                if (idleKey) {
+                    animation = availableAnimations[idleKey];
+                    console.log(`Using generic idle animation "${idleKey}" as fallback for "${animationName}"`);
+                }
             }
         }
-    }
-    
-    // Last resort - just pick any animation
-    if (!animation && Object.keys(availableAnimations).length > 0) {
-        // Just use any animation as a fallback
-        const firstKey = Object.keys(availableAnimations)[0];
-        animation = availableAnimations[firstKey];
-        console.log(`[ANIMATION] Using fallback animation: "${firstKey}" as no match found for "${animationName}"`);
     }
     
     if (animation) {
@@ -1170,6 +1201,17 @@ function playEnemyAnimation(enemyId, animationName) {
         }
     } else {
         console.warn(`[ANIMATION ERROR] No animation found or available for "${animationName}" on enemy ${enemyId} (${modelType})`);
+        
+        // Last resort - just use the first available animation
+        const firstAnimation = Object.values(availableAnimations)[0];
+        if (firstAnimation) {
+            console.log(`Using first available animation as last resort: "${firstAnimation.name}"`);
+            if (enemy.currentAnim && enemy.currentAnim.isPlaying) {
+                enemy.currentAnim.stop();
+            }
+            firstAnimation.start(true);
+            enemy.currentAnim = firstAnimation;
+        }
     }
 }
 
@@ -1199,7 +1241,7 @@ function setEnemyState(enemyId, state) {
     }
     
     // If already in DEATH state, don't change state again
-    if (enemy.state === "DEATH" && state === "DEATH") {
+    if (enemy.state === "DEATH" && state !== "DEATH") {
         debugLog(`Enemy ${enemyId} is already in DEATH state, ignoring state change`);
         return;
     }
@@ -1224,7 +1266,7 @@ function setEnemyState(enemyId, state) {
         }
     }
     
-    debugLog(`Setting enemy ${enemyId} state from ${enemy.state} to ${state}`);
+    debugLog(`Setting enemy ${enemyId} (${enemy.modelType}) state from ${enemy.state} to ${state}`);
     
     // Special case: When transitioning from CHASE to PATROL, always create a new path
     if (enemy.state === "CHASE" && state === "PATROL") {
@@ -1266,16 +1308,20 @@ function setEnemyState(enemyId, state) {
     // Get animation name from character config
     const modelType = enemy.modelType || "Character_Enemy";
     const configAnimation = CharacterEnemyConfig.getAnimationForMode(state, modelType);
+    
+    // Log model specific animation details
+    debugLog(`Model type: ${modelType}, State: ${state}, Config animation: ${configAnimation}`);
+    
     // Remove the "CharacterArmature|" prefix if it exists
     const animationName = configAnimation.replace("CharacterArmature|", "");
     
-    console.log(`Playing animation for state ${state} for ${modelType}: ${animationName}`);
+    debugLog(`Playing animation for ${modelType} in state ${state}: ${animationName}`);
     
     // Update movement speed based on state
     if (enemy.vehicle) {
         const speed = CharacterEnemyConfig.getSpeedForMode(state);
         enemy.vehicle.maxSpeed = speed;
-        console.log(`Updated enemy speed to ${speed} for state ${state}`);
+        debugLog(`Updated enemy ${enemyId} (${modelType}) speed to ${speed} for state ${state}`);
     }
     
     // Play the animation
@@ -1319,10 +1365,26 @@ function setEnemyRotation(enemyId, rotation) {
 function disposeEnemy(enemyId) {
     console.log(`Disposing enemy ${enemyId}`);
     
+    // Safety check - make sure enemyId is defined
+    if (!enemyId) {
+        console.warn("Attempted to dispose enemy with undefined ID");
+        return;
+    }
+    
     const enemy = loadedEnemies[enemyId];
     if (!enemy) {
         console.warn(`Enemy ${enemyId} not found for disposal`);
         return;
+    }
+    
+    // Stop all animations for this enemy first
+    if (enemy.animations) {
+        console.log(`Stopping all animations for enemy ${enemyId}`);
+        Object.values(enemy.animations).forEach(anim => {
+            if (anim && anim.isPlaying) {
+                anim.stop();
+            }
+        });
     }
     
     // Remove observer
@@ -1335,18 +1397,24 @@ function disposeEnemy(enemyId) {
         entityManager.remove(enemy.vehicle);
     }
     
-    // Dispose hitboxes
+    // Dispose hitboxes using direct reference to the enemy object
     if (enemy.headHitbox) {
+        console.log(`Disposing head hitbox for enemy ${enemyId}`);
         enemy.headHitbox.dispose();
+        enemy.headHitbox = null;
     }
     
     if (enemy.bodyHitbox) {
+        console.log(`Disposing body hitbox for enemy ${enemyId}`);
         enemy.bodyHitbox.dispose();
+        enemy.bodyHitbox = null;
     }
     
     // Dispose main mesh
     if (enemy.root) {
+        console.log(`Disposing root mesh for enemy ${enemyId}`);
         enemy.root.dispose();
+        enemy.root = null;
     }
     
     // Remove enemy's path from existingPaths
@@ -1354,19 +1422,34 @@ function disposeEnemy(enemyId) {
         const pathIndex = existingPaths.indexOf(enemy.currentPath);
         if (pathIndex !== -1) {
             existingPaths.splice(pathIndex, 1);
-            console.log(`Removed path from existingPaths. Remaining paths: ${existingPaths.length}`);
+            console.log(`Removed path from existingPaths for enemy ${enemyId}. Remaining paths: ${existingPaths.length}`);
         }
+        enemy.currentPath = null;
     }
     
     // Remove visualization
     if (pathVisualization[enemyId]) {
-        pathVisualization[enemyId].lines.dispose();
-        pathVisualization[enemyId].points.forEach(point => point.dispose());
+        console.log(`Disposing path visualization for enemy ${enemyId}`);
+        if (pathVisualization[enemyId].lines) {
+            pathVisualization[enemyId].lines.dispose();
+        }
+        
+        if (pathVisualization[enemyId].points && Array.isArray(pathVisualization[enemyId].points)) {
+            pathVisualization[enemyId].points.forEach(point => {
+                if (point) point.dispose();
+            });
+        }
+        
         delete pathVisualization[enemyId];
     }
     
-    // Remove from storage
+    // Mark as disposed for extra safety
+    enemy._disposed = true;
+    
+    // Remove from storage - this should be done last
     delete loadedEnemies[enemyId];
+    
+    console.log(`Enemy ${enemyId} has been fully disposed`);
 }
 
 // Add this function to create path visualization
@@ -1493,8 +1576,8 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
     }
     
     // If enemy is already dead, don't process the hit
-    if (enemy.state === "DEATH") {
-        debugLog(`Enemy ${enemyId} is already dead, ignoring hit`);
+    if (enemy.state === "DEATH" || enemy._deathProcessing) {
+        debugLog(`Enemy ${enemyId} is already dead or being processed, ignoring hit`);
         return;
     }
     
@@ -1523,21 +1606,31 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
         
         // Create death effect immediately
         if (window.createDeathEffect) {
-            window.createDeathEffect(enemy.transform.position.clone());
+            // Clone position to avoid sharing references
+            const position = new BABYLON.Vector3(
+                enemy.transform.position.x,
+                enemy.transform.position.y,
+                enemy.transform.position.z
+            );
+            window.createDeathEffect(position);
         }
         
         // Fixed duration for death animation
         const deathAnimDuration = GameConfig.enemies.death_anim_duration;
         
+        // Store enemyId in a closure to ensure we use the correct one later
+        const targetEnemyId = enemyId;
+        
         // Remove enemy after the death animation finishes
         setTimeout(() => {
             // Check if enemy still exists (might have been disposed already)
-            if (loadedEnemies[enemyId]) {
-                disposeEnemy(enemyId);
+            if (loadedEnemies[targetEnemyId]) {
+                // Call dispose with the specific enemy ID
+                disposeEnemy(targetEnemyId);
                 
                 // Notify player_main.js that the enemy died (for respawn logic)
                 if (window.handleEnemyDeath) {
-                    window.handleEnemyDeath(enemyId);
+                    window.handleEnemyDeath(targetEnemyId);
                 }
             }
         }, deathAnimDuration);
@@ -1585,16 +1678,17 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
         }
     }
     
-    // Create damage indicator
+    // Create damage indicator with the specific enemy ID
     createDamageIndicator(enemy.transform.position, damage);
     
     // Return to previous state after hit reaction duration
+    const targetEnemyId = enemyId; // Capture enemyId in closure for timeout
     setTimeout(() => {
         // Only change state if still in HIT_REACT (might have died or changed state otherwise)
-        if (enemy && enemy.state === "HIT_REACT") {
+        if (loadedEnemies[targetEnemyId] && loadedEnemies[targetEnemyId].state === "HIT_REACT") {
             // Return to patrol or chase state based on player proximity
-            const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detection_range);
-            setEnemyState(enemyId, isPlayerInRange ? "CHASE" : "PATROL");
+            const isPlayerInRange = checkPlayerInRange(targetEnemyId, GameConfig.enemies.detection_range);
+            setEnemyState(targetEnemyId, isPlayerInRange ? "CHASE" : "PATROL");
         }
     }, GameConfig.enemies.hit_reaction_duration);
 }
@@ -1736,11 +1830,14 @@ function toggleEnemyDebug(show = true) {
 window.debugEnemyMovement = debugEnemyMovement;
 window.toggleEnemyDebug = toggleEnemyDebug;
 
-// Initialize debug mode with console message
-debugLog("Enemy debug functions available. Type 'toggleEnemyDebug(true)' in console to enable debug visualization.");
-debugLog("Available debug commands:");
-debugLog("- toggleEnemyDebug(true/false) - Enable/disable debug visualization");
-debugLog("- debugEnemyMovement('enemy_id') - Debug specific enemy");
+// Wrap in a timeout to ensure GameConfig is available before calling debugLog
+setTimeout(() => {
+    // Initialize debug mode with console message
+    debugLog("Enemy debug functions available. Type 'toggleEnemyDebug(true)' in console to enable debug visualization.");
+    debugLog("Available debug commands:");
+    debugLog("- toggleEnemyDebug(true/false) - Enable/disable debug visualization");
+    debugLog("- debugEnemyMovement('enemy_id') - Debug specific enemy");
+}, 1000);
 
 // Modify updateEnemyState to include debug calls
 const originalUpdateEnemyState = updateEnemyState;
@@ -2542,3 +2639,19 @@ function updateEnemyAttack(enemyId) {
         enemy.lastAttackDecision = 0; // Force new decision next frame
     }
 }
+
+// At the top of the file, add a fallback animation mapping
+// This mapping helps match animation names with what's actually in the model files
+const CHARACTER_ANIMATION_FALLBACKS = {
+    "Character_Soldier": {
+        "Walk_Shoot": ["Walk", "Walking", "Run", "CharacterArmature|Walk"],
+        "Run_Shoot": ["Run", "Running", "CharacterArmature|Run"],
+        "Run_Gun": ["Run", "Running", "CharacterArmature|Run"],
+        "Idle": ["Idle", "CharacterArmature|Idle", "Standing"]
+    },
+    "Character_Hazmat": {
+        "Walk": ["Walk", "Walking", "CharacterArmature|Walk"],
+        "Run": ["Run", "Running", "CharacterArmature|Run"],
+        "Idle": ["Idle", "CharacterArmature|Idle", "Standing"]
+    }
+};

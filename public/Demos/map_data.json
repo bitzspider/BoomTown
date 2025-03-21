@@ -160,6 +160,8 @@
     {
       "id": "Character_Enemy_dd4e0676-f64e-4b10-b555-8135f47bc623",
       "model": "Character_Enemy.glb",
+      "type": "character",
+      "sub_type": "enemy",
       "position": {
         "x": -24.535403192957375,
         "y": 0,
@@ -179,6 +181,8 @@
     {
       "id": "Character_Soldier_53edca60-62d5-434f-a8c4-6925cb5d8704",
       "model": "Character_Soldier.glb",
+      "type": "character",
+      "sub_type": "enemy",
       "position": {
         "x": -40.96057672629328,
         "y": 0,
@@ -198,6 +202,8 @@
     {
       "id": "Character_Hazmat_d692f5c5-f170-417d-bbcc-ce4a8d569473",
       "model": "Character_Hazmat.glb",
+      "type": "character",
+      "sub_type": "enemy",
       "position": {
         "x": -43.61014893341739,
         "y": 0,

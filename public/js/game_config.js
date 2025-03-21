@@ -42,52 +42,59 @@ const GameConfig = {
    // Enemy settings
     enemies: {
         // DEFAULT Enemy settings
-        spawnInterval: 10000, // ms
-        respawnMinTime: 5000, // 5 seconds minimum respawn time
-        respawnMaxTime: 10000, // 10 seconds maximum respawn time
+        type: "character",
+        sub_type: "enemy",
         health: 100,
-        detectionRange: 12, // Units for player detection
-        aggroTime: 10000, // 10 seconds of aggro after being hit
-        deathAnimDuration: 500, // ms
-        hitReactionDuration: 500, // ms
-        searchDuration: 5000, // ms - how long enemy searches for player
+        destructible: true,
+        respawn: true,
+        respawn_time: 10000, // ms - matches model_data.json
+        respawn_delay: 5000, // ms - matches model_data.json
+        respawn_min_time: 5000, // 5 seconds minimum respawn time 
+        respawn_max_time: 10000, // 10 seconds maximum respawn time
+        detection_range: 12, // Units for player detection
+        aggro_time: 10000, // 10 seconds of aggro after being hit
+        death_anim_duration: 500, // ms
+        hit_reaction_duration: 500, // ms
+        search_duration: 5000, // ms - how long enemy searches for player
         models: ["Character_Enemy.glb", "Character_Hazmat.glb", "Character_Soldier.glb"],
+        max_enemies: 10, // Maximum number of enemies that can be spawned
+        spawn_interval: 10000, // ms between enemy spawns
         
         // Movement settings
-        idleDuration: 3000, // ms
-        moveSpeed: .7,
-        chaseSpeed: 1.0, // Faster when chasing
-        rotationSpeed: 0.15,
+        idle_duration: 3000, // ms
+        move_speed: .7,
+        chase_speed: 1.0, // Faster when chasing
+        rotation_speed: 0.15,
         
         // Attack mode settings
-        attackRange: 10, // Distance at which enemy transitions from CHASE to ATTACK
-        dodgeFrequency: 0.03, // Probability to dodge per frame in ATTACK mode
-        minDodgeDistance: 3, // Minimum distance to dodge
-        maxDodgeDistance: 6, // Maximum distance to dodge
-        circleStrafing: true, // Whether enemy strafes around player in ATTACK mode
-        minAttackDistance: 5, // Min distance enemy tries to maintain in ATTACK mode
-        maxAttackDistance: 8, // Max distance enemy tries to maintain in ATTACK mode
-        attackModeDecisionTime: 1000, // ms between attack mode decision updates
+        attack_range: 10, // Distance at which enemy transitions from CHASE to ATTACK
+        dodge_frequency: 0.03, // Probability to dodge per frame in ATTACK mode
+        min_dodge_distance: 3, // Minimum distance to dodge
+        max_dodge_distance: 6, // Maximum distance to dodge
+        circle_strafing: true, // Whether enemy strafes around player in ATTACK mode
+        min_attack_distance: 5, // Min distance enemy tries to maintain in ATTACK mode
+        max_attack_distance: 8, // Max distance enemy tries to maintain in ATTACK mode
+        attack_mode_decision_time: 1000, // ms between attack mode decision updates
         
         // Shooting settings
-        shootProbability: 0.01, // 1% chance per frame to shoot when in chase mode
-        attackShootProbability: 0.03, // 3% chance per frame to shoot when in attack mode
-        burstFireEnabled: true, // Whether enemy can fire in bursts
-        burstShotCount: 3, // Number of shots in a burst
-        burstFireInterval: 150, // ms between burst shots
+        shoot_probability: 0.01, // 1% chance per frame to shoot when in chase mode
+        attack_shoot_probability: 0.03, // 3% chance per frame to shoot when in attack mode
+        burst_fire_enabled: true, // Whether enemy can fire in bursts
+        burst_shot_count: 3, // Number of shots in a burst
+        burst_fire_interval: 150, // ms between burst shots
         
         // Hitbox dimensions
-        headHitbox: {
+        head_hitbox: {
             width: 0.6,
             height: 0.6,
             depth: 0.6,
-            yPosition: 1.7 // Position at head height
+            y_position: 1.7 // Position at head height
         },
-        bodyHitbox: {
+        body_hitbox: {
             width: 0.9,
             height: 1.4,
             depth: 1.0,
-            yPosition: 0.9 // Position at body height
+            y_position: 0.9 // Position at body height
         }
     },
     

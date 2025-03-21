@@ -117,8 +117,8 @@ var hitCooldown = GameConfig.player.hitCooldown; // 1 second cooldown between hi
 
 // Enemy variables
 var enemies = {};
-var maxEnemies = GameConfig.enemies.maxEnemies;
-var enemySpawnInterval = GameConfig.enemies.spawnInterval; // ms
+var maxEnemies = GameConfig.enemies.max_enemies;
+var enemySpawnInterval = GameConfig.enemies.spawn_interval; // ms
 var lastEnemySpawnTime = 0;
 var enemyModels = GameConfig.enemies.models; // List of available enemy models
 
@@ -2327,8 +2327,8 @@ function handleEnemyDeath(enemyId) {
     delete enemies[enemyId];
     
     // Spawn a new enemy after a random delay
-    const respawnDelay = GameConfig.enemies.respawnMinTime + 
-                         Math.random() * (GameConfig.enemies.respawnMaxTime - GameConfig.enemies.respawnMinTime);
+    const respawnDelay = GameConfig.enemies.respawn_min_time + 
+                         Math.random() * (GameConfig.enemies.respawn_max_time - GameConfig.enemies.respawn_min_time);
     debugLog(`Enemy will respawn in ${(respawnDelay/1000).toFixed(1)} seconds`);
     
     setTimeout(() => {

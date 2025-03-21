@@ -148,28 +148,28 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
     let enemyConfig = {
         // Clone default settings to avoid modifying the original
         health: GameConfig.enemies.health,
-        idleDuration: GameConfig.enemies.idleDuration,
-        moveSpeed: GameConfig.enemies.moveSpeed,
-        rotationSpeed: GameConfig.enemies.rotationSpeed,
-        chaseSpeed: GameConfig.enemies.chaseSpeed,
-        detectionRange: GameConfig.enemies.detectionRange,
-        aggroTime: GameConfig.enemies.aggroTime,
-        deathAnimDuration: GameConfig.enemies.deathAnimDuration,
-        hitReactionDuration: GameConfig.enemies.hitReactionDuration,
-        searchDuration: GameConfig.enemies.searchDuration,
-        attackRange: GameConfig.enemies.attackRange,
-        dodgeFrequency: GameConfig.enemies.dodgeFrequency,
-        minDodgeDistance: GameConfig.enemies.minDodgeDistance,
-        maxDodgeDistance: GameConfig.enemies.maxDodgeDistance,
-        circleStrafing: GameConfig.enemies.circleStrafing,
-        minAttackDistance: GameConfig.enemies.minAttackDistance,
-        maxAttackDistance: GameConfig.enemies.maxAttackDistance,
-        attackModeDecisionTime: GameConfig.enemies.attackModeDecisionTime,
-        shootProbability: GameConfig.enemies.shootProbability,
-        attackShootProbability: GameConfig.enemies.attackShootProbability,
-        burstFireEnabled: GameConfig.enemies.burstFireEnabled,
-        burstShotCount: GameConfig.enemies.burstShotCount,
-        burstFireInterval: GameConfig.enemies.burstFireInterval
+        idleDuration: GameConfig.enemies.idle_duration,
+        moveSpeed: GameConfig.enemies.move_speed,
+        rotationSpeed: GameConfig.enemies.rotation_speed,
+        chaseSpeed: GameConfig.enemies.chase_speed,
+        detectionRange: GameConfig.enemies.detection_range,
+        aggroTime: GameConfig.enemies.aggro_time,
+        deathAnimDuration: GameConfig.enemies.death_anim_duration,
+        hitReactionDuration: GameConfig.enemies.hit_reaction_duration,
+        searchDuration: GameConfig.enemies.search_duration,
+        attackRange: GameConfig.enemies.attack_range,
+        dodgeFrequency: GameConfig.enemies.dodge_frequency,
+        minDodgeDistance: GameConfig.enemies.min_dodge_distance,
+        maxDodgeDistance: GameConfig.enemies.max_dodge_distance,
+        circleStrafing: GameConfig.enemies.circle_strafing,
+        minAttackDistance: GameConfig.enemies.min_attack_distance,
+        maxAttackDistance: GameConfig.enemies.max_attack_distance,
+        attackModeDecisionTime: GameConfig.enemies.attack_mode_decision_time,
+        shootProbability: GameConfig.enemies.shoot_probability,
+        attackShootProbability: GameConfig.enemies.attack_shoot_probability,
+        burstFireEnabled: GameConfig.enemies.burst_fire_enabled,
+        burstShotCount: GameConfig.enemies.burst_shot_count,
+        burstFireInterval: GameConfig.enemies.burst_fire_interval
     };
     
     // Apply model-specific overrides from modelDetails if available
@@ -222,16 +222,16 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         
         // Create head hitbox with enemy ID
         const headHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_head_${enemyId}`, {
-            width: GameConfig.enemies.headHitbox.width,
-            height: GameConfig.enemies.headHitbox.height,
-            depth: GameConfig.enemies.headHitbox.depth
+            width: GameConfig.enemies.head_hitbox.width,
+            height: GameConfig.enemies.head_hitbox.height,
+            depth: GameConfig.enemies.head_hitbox.depth
         }, scene);
         
         // Create body hitbox with enemy ID
         const bodyHitbox = BABYLON.MeshBuilder.CreateBox(`hitbox_body_${enemyId}`, {
-            width: GameConfig.enemies.bodyHitbox.width,
-            height: GameConfig.enemies.bodyHitbox.height,
-            depth: GameConfig.enemies.bodyHitbox.depth
+            width: GameConfig.enemies.body_hitbox.width,
+            height: GameConfig.enemies.body_hitbox.height,
+            depth: GameConfig.enemies.body_hitbox.depth
         }, scene);
         
         // Create materials for hitboxes with enemy ID
@@ -264,8 +264,8 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
         bodyHitbox.parent = enemyTransform;
         
         // Position hitboxes relative to enemy model
-        headHitbox.position.y = GameConfig.enemies.headHitbox.yPosition;
-        bodyHitbox.position.y = GameConfig.enemies.bodyHitbox.yPosition;
+        headHitbox.position.y = GameConfig.enemies.head_hitbox.y_position;
+        bodyHitbox.position.y = GameConfig.enemies.body_hitbox.y_position;
         
         // Set initial hitbox visibility based on global setting
         headHitbox.isVisible = GameConfig.debug.showHitboxes;
@@ -428,7 +428,7 @@ function updateEnemyState(enemyId) {
     const timeInState = currentTime - enemy.stateStartTime;
     
     // Check if player is within chase range
-    const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detectionRange);
+    const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detection_range);
     
     // Get distance to player
     const playerPos = getPlayerPosition();
@@ -439,18 +439,18 @@ function updateEnemyState(enemyId) {
     const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
     
     // Check if enemy is close enough to attack
-    const isInAttackRange = distanceToPlayer <= GameConfig.enemies.attackRange;
+    const isInAttackRange = distanceToPlayer <= GameConfig.enemies.attack_range;
     
     // Check if enemy is in aggro mode (was hit recently)
     const timeSinceLastHit = enemy.lastHitTime ? currentTime - enemy.lastHitTime : Infinity;
-    const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || GameConfig.enemies.aggroTime);
+    const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || GameConfig.enemies.aggro_time);
     
     // If in aggro mode, enemy will chase player even if out of normal detection range
     const shouldChasePlayer = isPlayerInRange || isInAggroMode;
     
     // Log aggro status occasionally
     if (isInAggroMode && Math.random() < 0.01) { // 1% chance per frame to log
-        const remainingAggroTime = ((enemy.aggroTime || GameConfig.enemies.aggroTime) - timeSinceLastHit) / 1000;
+        const remainingAggroTime = ((enemy.aggroTime || GameConfig.enemies.aggro_time) - timeSinceLastHit) / 1000;
         debugLog(`Enemy ${enemyId} is in aggro mode. Remaining time: ${remainingAggroTime.toFixed(1)} seconds`);
     }
     
@@ -479,7 +479,7 @@ function updateEnemyState(enemyId) {
                 updateEnemyChase(enemyId);
                 
                 // Occasionally shoot at player when in chase mode
-                if (Math.random() < GameConfig.enemies.shootProbability) {
+                if (Math.random() < GameConfig.enemies.shoot_probability) {
                     enemyShootAtPlayer(enemyId);
                 }
             }
@@ -487,7 +487,7 @@ function updateEnemyState(enemyId) {
         case "ATTACK":
             if (!shouldChasePlayer) {
                 setEnemyState(enemyId, "PATROL");
-            } else if (distanceToPlayer > GameConfig.enemies.attackRange * 1.5) {
+            } else if (distanceToPlayer > GameConfig.enemies.attack_range * 1.5) {
                 // If player gets too far away, switch back to chase mode
                 setEnemyState(enemyId, "CHASE");
             } else {
@@ -495,9 +495,9 @@ function updateEnemyState(enemyId) {
                 updateEnemyAttack(enemyId);
                 
                 // Shoot more frequently in attack mode
-                if (Math.random() < GameConfig.enemies.attackShootProbability) {
+                if (Math.random() < GameConfig.enemies.attack_shoot_probability) {
                     // Potentially use burst fire
-                    if (GameConfig.enemies.burstFireEnabled && Math.random() < 0.3) {
+                    if (GameConfig.enemies.burst_fire_enabled && Math.random() < 0.3) {
                         // Start burst fire sequence
                         startBurstFire(enemyId);
                     } else {
@@ -557,13 +557,13 @@ function updateEnemyPatrol(enemyId) {
     // Check if enemy is in aggro mode (was hit recently)
     const currentTime = Date.now();
     const timeSinceLastHit = enemy.lastHitTime ? currentTime - enemy.lastHitTime : Infinity;
-    const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || GameConfig.enemies.aggroTime);
+    const isInAggroMode = timeSinceLastHit < (enemy.aggroTime || GameConfig.enemies.aggro_time);
     
     // If in aggro mode and searching, try to move towards the player's last known position
     if (isInAggroMode && enemy.isSearching) {
         // Log search status occasionally
         if (Math.random() < 0.01) { // 1% chance per frame to log
-            const remainingAggroTime = ((enemy.aggroTime || GameConfig.enemies.aggroTime) - timeSinceLastHit) / 1000;
+            const remainingAggroTime = ((enemy.aggroTime || GameConfig.enemies.aggro_time) - timeSinceLastHit) / 1000;
             debugLog(`Enemy ${enemyId} is searching for player. Remaining aggro time: ${remainingAggroTime.toFixed(1)} seconds`);
         }
         
@@ -603,7 +603,7 @@ function updateEnemyPatrol(enemyId) {
                         enemy.isSearching = false;
                         enemy.searchingForPlayer = false;
                     }
-                }, GameConfig.enemies.searchDuration);
+                }, GameConfig.enemies.search_duration);
             }
         }
     }
@@ -1502,8 +1502,8 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
     
     // Set the last hit time to make the enemy chase the player
     enemy.lastHitTime = Date.now();
-    enemy.aggroTime = GameConfig.enemies.aggroTime;
-    debugLog(`Enemy ${enemyId} will chase player for ${GameConfig.enemies.aggroTime/1000} seconds after being hit`);
+    enemy.aggroTime = GameConfig.enemies.aggro_time;
+    debugLog(`Enemy ${enemyId} will chase player for ${GameConfig.enemies.aggro_time/1000} seconds after being hit`);
     
     // Reduce enemy health
     if (!enemy.health) enemy.health = GameConfig.enemies.health; // Initialize health if not set
@@ -1527,7 +1527,7 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
         }
         
         // Fixed duration for death animation
-        const deathAnimDuration = GameConfig.enemies.deathAnimDuration;
+        const deathAnimDuration = GameConfig.enemies.death_anim_duration;
         
         // Remove enemy after the death animation finishes
         setTimeout(() => {
@@ -1593,10 +1593,10 @@ function handleEnemyHit(enemyId, damage, hitDirection) {
         // Only change state if still in HIT_REACT (might have died or changed state otherwise)
         if (enemy && enemy.state === "HIT_REACT") {
             // Return to patrol or chase state based on player proximity
-            const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detectionRange);
+            const isPlayerInRange = checkPlayerInRange(enemyId, GameConfig.enemies.detection_range);
             setEnemyState(enemyId, isPlayerInRange ? "CHASE" : "PATROL");
         }
-    }, GameConfig.enemies.hitReactionDuration);
+    }, GameConfig.enemies.hit_reaction_duration);
 }
 
 // Make handleEnemyHit function globally accessible
@@ -2345,7 +2345,7 @@ function startBurstFire(enemyId) {
     enemyShootAtPlayer(enemyId);
     
     // Set up remaining shots in the burst
-    let shotsRemaining = GameConfig.enemies.burstShotCount - 1;
+    let shotsRemaining = GameConfig.enemies.burst_shot_count - 1;
     
     const burstInterval = setInterval(() => {
         if (shotsRemaining > 0 && enemy && enemy.state === "ATTACK") {
@@ -2354,7 +2354,7 @@ function startBurstFire(enemyId) {
         } else {
             clearInterval(burstInterval);
         }
-    }, GameConfig.enemies.burstFireInterval);
+    }, GameConfig.enemies.burst_fire_interval);
 }
 
 // Update enemy attack behavior - smarter AI movement
@@ -2382,12 +2382,12 @@ function updateEnemyAttack(enemyId) {
     
     // Make new decisions periodically
     const currentTime = Date.now();
-    if (currentTime - enemy.lastAttackDecision > GameConfig.enemies.attackModeDecisionTime) {
+    if (currentTime - enemy.lastAttackDecision > GameConfig.enemies.attack_mode_decision_time) {
         // Update attack strategy based on distance
-        if (distanceToPlayer < GameConfig.enemies.minAttackDistance) {
+        if (distanceToPlayer < GameConfig.enemies.min_attack_distance) {
             // Too close, back up
             enemy.attackStrategy = "retreat";
-        } else if (distanceToPlayer > GameConfig.enemies.maxAttackDistance) {
+        } else if (distanceToPlayer > GameConfig.enemies.max_attack_distance) {
             // Too far, approach
             enemy.attackStrategy = "approach";
         } else {
@@ -2396,7 +2396,7 @@ function updateEnemyAttack(enemyId) {
         }
         
         // Occasionally decide to dodge
-        if (Math.random() < GameConfig.enemies.dodgeFrequency * 10) { // Higher chance on decision points
+        if (Math.random() < GameConfig.enemies.dodge_frequency * 10) { // Higher chance on decision points
             enemy.attackStrategy = "dodge";
             
             // Choose dodge direction (left, right, back)
@@ -2439,11 +2439,11 @@ function updateEnemyAttack(enemyId) {
             }
             
             // Mix in a bit of approach/retreat to maintain optimal distance
-            if (distanceToPlayer > GameConfig.enemies.maxAttackDistance) {
+            if (distanceToPlayer > GameConfig.enemies.max_attack_distance) {
                 // Add some approach vector
                 moveDirection.add(dirToPlayer.clone().multiplyScalar(0.5));
                 moveDirection.normalize();
-            } else if (distanceToPlayer < GameConfig.enemies.minAttackDistance) {
+            } else if (distanceToPlayer < GameConfig.enemies.min_attack_distance) {
                 // Add some retreat vector
                 moveDirection.add(dirToPlayer.clone().multiplyScalar(-0.5));
                 moveDirection.normalize();
@@ -2469,8 +2469,8 @@ function updateEnemyAttack(enemyId) {
             if (!enemy.randomMoveTarget || Math.random() < 0.05) {
                 // Create a new random move target periodically
                 const angle = Math.random() * Math.PI * 2;
-                const distance = GameConfig.enemies.minDodgeDistance + 
-                                Math.random() * (GameConfig.enemies.maxDodgeDistance - GameConfig.enemies.minDodgeDistance);
+                const distance = GameConfig.enemies.min_dodge_distance + 
+                                Math.random() * (GameConfig.enemies.max_dodge_distance - GameConfig.enemies.min_dodge_distance);
                 
                 // Calculate random position around player
                 enemy.randomMoveTarget = new YUKA.Vector3(

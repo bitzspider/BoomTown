@@ -69,8 +69,8 @@ const GameConfig = {
         
         // Movement settings
         idle_duration: 3000, // ms
-        move_speed: .2,
-        chase_speed: 1.0, // Faster when chasing
+        move_speed: 1.5,
+        chase_speed: 2.0, // Faster when chasing
         rotation_speed: 0.15,
         
         // Attack mode settings

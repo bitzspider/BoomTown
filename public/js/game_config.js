@@ -69,8 +69,8 @@ const GameConfig = {
         
         // Movement settings
         idle_duration: 3000, // ms
-        move_speed: 1.5,
-        chase_speed: 2.0, // Faster when chasing
+        move_speed: 0.8,
+        chase_speed: 1.2, // Faster when chasing
         rotation_speed: 0.15,
         
         // Attack mode settings
@@ -87,8 +87,8 @@ const GameConfig = {
         shoot_probability: 0.01, // 1% chance per frame to shoot when in chase mode
         attack_shoot_probability: 0.03, // 3% chance per frame to shoot when in attack mode
         burst_fire_enabled: true, // Whether enemy can fire in bursts
-        burst_shot_count: 3, // Number of shots in a burst
-        burst_fire_interval: 150, // ms between burst shots
+        burst_shot_count: 1, // Number of shots in a burst
+        burst_fire_interval: 1000, // ms between burst shots
         
         // Hitbox dimensions
         head_hitbox: {
@@ -99,8 +99,8 @@ const GameConfig = {
         },
         body_hitbox: {
             width: 0.9,
-            height: 1.4,
-            depth: 1.0,
+            height: 1.5,
+            depth: 0.9,
             y_position: 0.9 // Position at body height
         }
     },

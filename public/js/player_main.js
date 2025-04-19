@@ -1,3 +1,45 @@
+/*
+ * BoomTown Player Controller and Game Loop (player_main.js)
+ * 
+ * PURPOSE:
+ * This is the main game engine file that controls:
+ * 1. The core game loop and initialization
+ * 2. Player movement, physics, combat, and inventory
+ * 3. Scene setup and rendering
+ * 4. Enemy spawning and management (via character_enemy_controller.js)
+ * 5. Collision detection and game physics
+ * 6. HUD and UI elements
+ * 7. Weapon systems and projectiles
+ * 
+ * DEPENDENCIES (files this relies on):
+ * - game_config.js: For all game parameters, physics, controls, and default settings
+ * - character_enemy_controller.js: For enemy spawning, AI, and behavior management
+ * - map_data.json: For level design, object placement, and enemy positions
+ * - model_data.json: For model-specific properties that are passed to enemies
+ * - BabylonJS: For 3D rendering, physics, animations, and mesh management
+ * 
+ * DEPENDENTS (files that rely on this):
+ * - This is the main entry point for the game, other files don't directly depend on it
+ * - UI elements and HUD may interact with exported variables
+ * 
+ * GAME INITIALIZATION FLOW:
+ * 1. Scene creation and setup
+ * 2. Load map data from map_data.json
+ * 3. Initialize player character
+ * 4. Spawn enemies from map data according to their attributes
+ * 5. Start game loop
+ * 
+ * ENEMY SPAWNING LOGIC:
+ * - All enemies must come from map_data.json
+ * - Only objects with type="character" and sub_type="enemy" are spawned as enemies
+ * - Spawning uses configuration hierarchy: game_config → model_data → map_data
+ * - No hardcoded enemy models - everything comes from the map designer
+ * 
+ * GLOBAL EXPORTS:
+ * - Various game state variables and player stats
+ * - Functions for input handling and game state management
+ */
+
 // BoomTown - Player Mode
 // Main file for player-controlled character
 
@@ -1592,16 +1634,29 @@ function checkNonGroundCollision(position) {
 function updateHUD() {
     // Update health display
     const healthDisplay = document.getElementById("healthValue");
-    if (healthDisplay) {
+    const healthBar = document.getElementById("healthBar");
+    
+    if (healthDisplay && healthBar) {
+        // Update the text value
         healthDisplay.textContent = playerHealth;
         
-        // Change color based on health
+        // Calculate health percentage
+        const maxHealth = GameConfig.player.health;
+        const healthPercent = (playerHealth / maxHealth) * 100;
+        
+        // Update the health bar width
+        healthBar.style.width = healthPercent + "%";
+        
+        // Change color based on health level
         if (playerHealth > 70) {
-            healthDisplay.style.color = "#00ff00"; // Green for good health
+            // Green zone - we'll let the gradient handle this
+            healthBar.style.background = "linear-gradient(to right, #00ff00, #00ff00)";
         } else if (playerHealth > 30) {
-            healthDisplay.style.color = "#ffff00"; // Yellow for medium health
+            // Yellow zone
+            healthBar.style.background = "linear-gradient(to right, #ffff00, #ffff00)";
         } else {
-            healthDisplay.style.color = "#ff0000"; // Red for low health
+            // Red zone
+            healthBar.style.background = "linear-gradient(to right, #ff0000, #ff0000)";
         }
     }
     
@@ -1895,7 +1950,9 @@ function updateProjectiles() {
             
             if (distanceToPlayer < 1.0) {
                 debugLog("Player hit!");
-                playerHealth -= 20; // Fixed damage amount
+                // Use the configured projectile damage value with damage multiplier
+                const projectileDamage = GameConfig.enemies.projectile_damage * GameConfig.enemies.damage_multiplier;
+                playerHealth -= projectileDamage;
                 lastDamageTime = Date.now();
                 
                 // Cancel any healing in progress
@@ -2351,7 +2408,9 @@ function updateEnemies() {
             // Increased threshold from 2.5 to 3.5 to account for potential position discrepancies
             if (distanceToPlayer < 3.5 && currentTime - lastHitTime > hitCooldown) {
                 debugLog(`[MELEE] Enemy ${enemyId} melee attack at distance ${distanceToPlayer.toFixed(2)}!`);
-                playerHealth -= 10; // Melee damage
+                // Use the configured melee damage value with damage multiplier
+                const meleeDamage = GameConfig.enemies.melee_damage * GameConfig.enemies.damage_multiplier;
+                playerHealth -= meleeDamage;
                 lastHitTime = currentTime;
                 lastDamageTime = currentTime;
                 
@@ -2583,10 +2642,12 @@ function createDeathEffect(position) {
 
 // Enemy attacks player (melee)
 function attackPlayer(enemy, damage) {
-    debugLog(`Enemy ${enemy.id} attacks player for ${damage} damage`);
+    // Apply the damage multiplier from GameConfig
+    const adjustedDamage = damage * GameConfig.enemies.damage_multiplier;
+    debugLog(`Enemy ${enemy.id} attacks player for ${adjustedDamage} damage (base: ${damage}, multiplier: ${GameConfig.enemies.damage_multiplier})`);
     
     // Apply damage to player
-    playerHealth -= damage;
+    playerHealth -= adjustedDamage;
     lastDamageTime = Date.now();
     
     // Cancel any healing in progress
@@ -2918,14 +2979,15 @@ function spawnEnemy() {
             return;
         }
         
-        // Filter for enemy characters in the map
-        const enemyObjects = mapData.objects.filter(obj => obj.model === "Character_Enemy.glb");
+        // Filter for enemy characters in the map by type and sub_type, not by hardcoded model names
+        const enemyObjects = mapData.objects.filter(obj => 
+            obj.type === "character" && obj.sub_type === "enemy"
+        );
         
         if (enemyObjects.length === 0) {
-            // No enemies in map, fall back to random spawn point
-            debugLog("No enemies found in map data, using random spawn point");
-            const spawnPoint = getRandomSpawnPoint();
-            spawnEnemyAtPosition(spawnPoint, null);
+            // No enemies in map, don't spawn any - all enemies should come from map data
+            debugLog("No enemies found in map data, no enemies will be spawned");
+            return;
         } else {
             // Spawn enemies at the positions defined in the map
             debugLog(`Found ${enemyObjects.length} enemies in map data`);
@@ -2934,6 +2996,8 @@ function spawnEnemy() {
             const enemyPlaceholders = scene.meshes.filter(mesh => 
                 mesh.name && (
                     mesh.name.includes("Character_Enemy") || 
+                    mesh.name.includes("Character_Soldier") ||
+                    mesh.name.includes("Character_Hazmat") ||
                     (mesh.name.includes("enemy") && !mesh.name.includes("enemy_")) || 
                     enemyObjects.some(obj => obj.id === mesh.name || obj.id === mesh.id)
                 )
@@ -2968,35 +3032,50 @@ function spawnEnemy() {
                 };
                 
                 debugLog(`Spawning enemy from map at position: ${JSON.stringify(position)}`);
-                // Pass map-specific properties if they exist
-                spawnEnemyAtPosition(position, enemyObj.properties);
+                // Pass map-specific properties including the model name from map data
+                const properties = {
+                    model: enemyObj.model,
+                    ...(enemyObj.attributes || {}),
+                };
+                spawnEnemyAtPosition(position, properties);
             });
         }
     }).catch(error => {
         debugLog(`Error loading map data for enemies: ${error}`, true);
-        // Fall back to random spawn as a backup
-        const spawnPoint = getRandomSpawnPoint();
-        spawnEnemyAtPosition(spawnPoint, null);
+        // Don't fall back to random spawn - all enemies should come from map data
+        debugLog("Failed to load map data, no enemies will be spawned", true);
     });
 }
 
 // Helper function to spawn an enemy at a specific position
 function spawnEnemyAtPosition(position, mapProperties = null) {
-    // Select a random enemy model from the available models in GameConfig
-    const enemyModels = GameConfig.enemies.models || ["Character_Enemy.glb", "Character_Hazmat.glb", "Character_Soldier.glb"];
-    
-    // Safety check to make sure models are available
-    if (!enemyModels || enemyModels.length === 0) {
-        debugLog("No enemy models defined in GameConfig, using default model", true);
-        // Use default model as fallback
-        const defaultModel = "Character_Enemy.glb";
-        loadDefaultEnemy(position, defaultModel, mapProperties);
+    // If no map properties, we can't spawn enemy
+    if (!mapProperties) {
+        debugLog("No map properties provided for enemy, cannot spawn", true);
         return;
     }
     
-    const randomModel = enemyModels[Math.floor(Math.random() * enemyModels.length)];
+    // Use the model specified in map properties, or get from GameConfig if not specified
+    let enemyModel;
     
-    // Create a merged configuration from mapProperties
+    if (mapProperties.model) {
+        // Use the model specified in map data
+        enemyModel = mapProperties.model;
+    } else {
+        // If no model specified, get from GameConfig (for backwards compatibility)
+        const enemyModels = GameConfig.enemies.models;
+        
+        // If no enemy models are defined in GameConfig, don't spawn any
+        if (!enemyModels || enemyModels.length === 0) {
+            debugLog("No enemy models defined in GameConfig and no model specified in map, cannot spawn enemy", true);
+            return;
+        }
+        
+        // Randomly select a model from the available ones
+        enemyModel = enemyModels[Math.floor(Math.random() * enemyModels.length)];
+    }
+    
+    // Create a merged configuration from mapProperties and GameConfig defaults
     let mergedConfig = {
         health: GameConfig.enemies.health,
         // Add other default properties from GameConfig.enemies as needed
@@ -3008,9 +3087,9 @@ function spawnEnemyAtPosition(position, mapProperties = null) {
     }
     
     // Load the enemy model using the controller with proper config hierarchy
-    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), randomModel, mergedConfig, (enemyData) => {
+    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), enemyModel, mergedConfig, (enemyData) => {
         if (!enemyData) {
-            debugLog("Failed to load enemy model: " + randomModel, true);
+            debugLog("Failed to load enemy model: " + enemyModel, true);
             return;
         }
         
@@ -3030,25 +3109,6 @@ function spawnEnemyAtPosition(position, mapProperties = null) {
         debugLog("Enemy spawned successfully with ID: " + enemyId);
         
         // Set the enemy to patrol state using the controller
-        setEnemyState(enemyId, "PATROL");
-    });
-}
-
-// Helper function to load a default enemy when model data is unavailable
-function loadDefaultEnemy(position, modelName, mapProperties) {
-    loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), modelName, null, (enemyData) => {
-        const enemyId = enemyData.id;
-        enemies[enemyId] = {
-            id: enemyId,
-            mesh: enemyData.mesh,
-            skeleton: enemyData.skeleton,
-            headHitbox: enemyData.headHitbox,
-            bodyHitbox: enemyData.bodyHitbox,
-            health: 100,
-            lastHitTime: 0,
-            hitCooldown: 1000
-        };
-        
         setEnemyState(enemyId, "PATROL");
     });
 }

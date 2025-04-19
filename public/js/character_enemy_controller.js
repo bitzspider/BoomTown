@@ -1,3 +1,36 @@
+/*
+ * BoomTown Enemy Controller (character_enemy_controller.js)
+ * 
+ * PURPOSE:
+ * This file is responsible for all enemy AI behavior, animation, combat,
+ * and state management. It implements the complete enemy lifecycle from
+ * spawning to death, handling movement, attacks, and interactions with 
+ * the player. This controller uses a state machine (IDLE, PATROL, CHASE, ATTACK, etc.)
+ * to manage different enemy behaviors.
+ * 
+ * DEPENDENCIES (files this relies on):
+ * - game_config.js: For default enemy parameters, AI settings, and hitbox dimensions
+ * - model_data.json: For model-specific properties that override defaults
+ * - map_data.json: For instance-specific properties and positions
+ * - BabylonJS: For 3D rendering, physics, animations, and mesh management
+ * - YUKA: For AI movement, pathfinding, and vehicle behaviors
+ * 
+ * DEPENDENTS (files that rely on this):
+ * - player_main.js: Calls functions here to spawn, manage and interact with enemies
+ *   It specifically uses loadEnemyModel(), setEnemyState(), disposeEnemy(), and other
+ *   controller functions to manage the enemy lifecycle.
+ * 
+ * CONFIG HIERARCHY:
+ * This file implements the 3-level configuration system:
+ * 1. Default values from GameConfig.enemies (base settings)
+ * 2. Model-specific values from model_data.json (per model type)
+ * 3. Instance-specific values from map_data.json (per enemy instance)
+ * 
+ * GLOBAL EXPORTS:
+ * - window.loadedEnemies: Access to all spawned enemy instances
+ * - Various functions exposed for enemy management: loadEnemyModel, setEnemyState, etc.
+ */
+
 // Enemy Controller for BoomTown
 // Handles loading and animating the Character_Enemy model
 
@@ -144,8 +177,13 @@ async function loadEnemyModel(sceneParam, position, modelParam = null, modelDeta
     console.log("Loading enemy model at position:", position);
     
     const modelPath = "/models/";
-    // Use the provided model parameter or fall back to Character_Enemy.glb
-    const model = modelParam || "Character_Enemy.glb";
+    // Check if a model was provided, don't use a hardcoded fallback
+    if (!modelParam) {
+        console.error("No model parameter provided to loadEnemyModel");
+        return;
+    }
+    
+    const model = modelParam;
     const modelType = model.split('.')[0]; // Extract model name without extension
     
     console.log(`Loading enemy model: ${model}, type: ${modelType}`);

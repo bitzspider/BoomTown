@@ -32,10 +32,28 @@ app.get('/map-data', async (req, res) => {
 // Get model data endpoint
 app.get('/model-data', async (req, res) => {
     try {
-        const modelData = await fs.readFile(
-            path.join(__dirname, 'public', 'Demos', 'model_data.json'),
-            'utf8'
-        );
+        console.log('Received request for model data');
+        const modelDataPath = path.join(__dirname, 'public', 'Demos', 'model_data.json');
+        console.log('Reading model data from:', modelDataPath);
+        
+        const modelData = await fs.readFile(modelDataPath, 'utf8');
+        console.log('Model data loaded successfully, size:', modelData.length, 'bytes');
+        
+        // Parse and log the structure to confirm it's valid
+        try {
+            const parsedData = JSON.parse(modelData);
+            console.log('Model data parsed successfully. Contains', 
+                parsedData.models ? parsedData.models.length : 0, 'models');
+                
+            // Log a few model names for debugging
+            if (parsedData.models && parsedData.models.length > 0) {
+                console.log('Sample model names:',
+                    parsedData.models.slice(0, 3).map(m => m.name).join(', '), '...');
+            }
+        } catch (parseError) {
+            console.error('Warning: Model data is not valid JSON:', parseError);
+        }
+        
         res.setHeader('Content-Type', 'application/json');
         res.send(modelData);
     } catch (error) {

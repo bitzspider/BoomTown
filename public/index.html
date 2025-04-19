@@ -41,6 +41,48 @@
             font-size: 16px;
             pointer-events: none;
             user-select: none;
+            display: flex;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .health-container {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+        .health-label {
+            margin-right: 10px;
+        }
+        .health-bar-container {
+            width: 150px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #444;
+        }
+        .health-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(to right, #ff0000, #ffff00, #00ff00);
+            border-radius: 10px;
+            transition: width 0.3s ease-in-out;
+        }
+        .health-text {
+            position: absolute;
+            width: 150px;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 1px 1px 1px #000;
+        }
+        .ammo-container {
+            display: flex;
+            align-items: center;
+        }
+        .ammo-label {
+            margin-right: 10px;
         }
         #menu {
             position: absolute;
@@ -124,7 +166,17 @@
     <canvas id="renderCanvas"></canvas>
     <div id="crosshair">+</div>
     <div id="hud">
-        Health: <span id="healthValue">100</span> | Ammo: <span id="ammoValue">30</span>
+        <div class="health-container">
+            <span class="health-label">Health:</span>
+            <div class="health-bar-container">
+                <div class="health-bar" id="healthBar" style="width: 100%;"></div>
+                <span class="health-text" id="healthValue">100</span>
+            </div>
+        </div>
+        <div class="ammo-container">
+            <span class="ammo-label">Ammo:</span>
+            <span id="ammoValue">30</span>
+        </div>
     </div>
     
     <div id="menu">

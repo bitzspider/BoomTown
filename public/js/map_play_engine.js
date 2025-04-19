@@ -76,18 +76,6 @@ class MapPlayEngine {
             return this.modelData;
         } catch (error) {
             console.error("Error loading model data:", error);
-            // Create default entry for Box of bullets.glb
-            this.modelDataMap.set("Box of bullets.glb", {
-                name: "Box of bullets.glb",
-                type: "loot",
-                sub_type: "ammo",
-                description: "Ammo box containing bullets",
-                value: 10,
-                respawn: true,
-                respawn_time: 10000,
-                respawn_delay: 5000
-            });
-            console.log("Created default ammo pickup model entry");
             return null;
         }
     }

@@ -96,6 +96,43 @@ BoomTown/
 └── package.json       # Project dependencies
 ```
 
+## 📄 Configuration System
+
+BoomTown uses a three-tiered configuration hierarchy for game entities:
+
+### Configuration Files
+
+1. **game_config.js**
+   - Base game settings for all aspects of gameplay
+   - Default values for player, enemies, physics, weapons
+   - Lowest priority in configuration hierarchy
+   - Located at: `public/js/game_config.js`
+
+2. **model_data.json**
+   - Model-specific configuration for all game assets
+   - Defines properties by model type (character, loot, trap, etc.)
+   - Sets defaults that override game_config.js
+   - Middle priority in configuration hierarchy
+   - Located at: `public/Demos/model_data.json`
+
+3. **map_data.json**
+   - Instance-specific settings for placed objects
+   - Positions, rotations, scales, and attributes for objects
+   - Highest priority in configuration hierarchy
+   - Created and modified by the Map Designer
+   - Located at: `public/Demos/map_data.json`
+
+### Enemy Configuration Flow
+1. Default enemy settings come from `game_config.js`
+2. These are overridden by model-specific settings in `model_data.json`
+3. Map-specific instance attributes from `map_data.json` have final priority
+4. **Important**: All enemies must be defined in the map (no hardcoded fallbacks)
+
+### Core Components
+- **Map Designer**: Creates and saves maps with enemy placements
+- **Game Engine**: Loads maps and spawns enemies based on model type/sub_type
+- **Enemy Controller**: Controls AI using the merged configuration hierarchy
+
 ## 🎨 Features in Development
 
 - Multiplayer support

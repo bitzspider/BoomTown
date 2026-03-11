@@ -1,7 +1,7 @@
 {
   "id": "208fh8273hfh82fh",
   "name": "Default Map",
-  "version": "1.0",
+  "version": "1.2",
   "gridSize": 1,
   "showGrid": true,
   "objects": [
@@ -22,7 +22,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "container",
+      "attributes": {}
     },
     {
       "id": "barrier_concrete_1",
@@ -41,7 +44,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "structure",
+      "attributes": {}
     },
     {
       "id": "tree_pine_1",
@@ -60,7 +66,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "vegetation",
+      "attributes": {}
     },
     {
       "id": "Tree_02d5a87f-b537-432c-be95-d2946b734b06",
@@ -79,7 +88,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "vegetation",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_a3e23fd6-f23d-4673-9c9b-a30a4564acd4",
@@ -98,7 +110,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_1a799834-0ff1-4170-bb65-93e36808b10a",
@@ -117,7 +132,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_5a975f9f-da2c-4634-9e9f-c259a6a6573f",
@@ -136,7 +154,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_fbfbe596-0b90-45b9-9dfc-dce0f97cf6ae",
@@ -155,7 +176,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Character_Enemy_dd4e0676-f64e-4b10-b555-8135f47bc623",
@@ -174,7 +198,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "character",
+      "sub_type": "enemy",
+      "attributes": {}
     },
     {
       "id": "Character_Soldier_53edca60-62d5-434f-a8c4-6925cb5d8704",
@@ -193,7 +220,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "character",
+      "sub_type": "enemy",
+      "attributes": {}
     },
     {
       "id": "Character_Hazmat_d692f5c5-f170-417d-bbcc-ce4a8d569473",
@@ -212,7 +242,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "character",
+      "sub_type": "enemy",
+      "attributes": {}
     },
     {
       "id": "Street Light_18c3e11f-9da0-451b-b4db-e3b64d53b83e",
@@ -231,7 +264,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "light",
+      "attributes": {}
     },
     {
       "id": "Structure-oUkHO0kbQt_01cb7412-fe58-486f-82b3-37268879ca6d",
@@ -250,6 +286,11 @@
         "x": 1,
         "y": 1,
         "z": 1
+      },
+      "type": "object",
+      "sub_type": "structure",
+      "attributes": {
+        "destructible": false
       }
     },
     {
@@ -269,7 +310,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "barrier",
+      "attributes": {}
     },
     {
       "id": "Barrier Fixed_da088215-7c38-4ff3-8571-656461501e30",
@@ -288,7 +332,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "barrier",
+      "attributes": {}
     },
     {
       "id": "Barrier Fixed_2c46eede-44d2-4ceb-a65d-e23db4b47caa",
@@ -307,19 +354,44 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "barrier",
+      "attributes": {}
+    },
+    {
+      "id": "Warehouse_9d0d6f06-b34b-4806-a2d0-d2dd6ca85e5e",
+      "model": "Warehouse.glb",
+      "position": {
+        "x": 39.213940982053714,
+        "y": 0,
+        "z": 9.892918865643736
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 0.1,
+        "y": 0.1,
+        "z": 0.1
+      },
+      "type": "object",
+      "sub_type": "decoration",
+      "attributes": {}
     }
   ],
   "camera": {
     "position": {
-      "x": 30.728685364672277,
-      "y": 35.658486741627684,
-      "z": 14.503115577645591
+      "x": -20.470154751572537,
+      "y": 3.545216964354797,
+      "z": 1.1068473548160827
     },
     "target": {
-      "x": 1.2353341949241268,
-      "y": 4.264078956138353,
-      "z": 0.8398602370928201
+      "x": 0.714737554112997,
+      "y": 4.358829624132248,
+      "z": 1.8834630778866706
     }
   },
   "lighting": {

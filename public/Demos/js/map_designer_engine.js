@@ -43,6 +43,7 @@ class MapEngine {
         this.mapData = null;
         this.instances = new Map(); // Track instances by ID
         this.modelData = { models: [] }; // Initialize empty model data
+        this.modelDataMap = new Map();
 
         // Load model data right away
         this.loadModelData();
@@ -91,6 +92,37 @@ class MapEngine {
             console.error(`Error loading model ${modelName}:`, error);
             throw error;
         }
+    }
+
+    getModelDefinition(modelName) {
+        if (!modelName) {
+            return null;
+        }
+
+        return this.modelDataMap.get(modelName) || null;
+    }
+
+    mergeAttributeValues(target, source) {
+        if (!source || typeof source !== 'object' || Array.isArray(source)) {
+            return target;
+        }
+
+        for (const key in source) {
+            if (
+                typeof source[key] === 'object' &&
+                source[key] !== null &&
+                !Array.isArray(source[key]) &&
+                typeof target[key] === 'object' &&
+                target[key] !== null &&
+                !Array.isArray(target[key])
+            ) {
+                target[key] = this.mergeAttributeValues({ ...target[key] }, source[key]);
+            } else {
+                target[key] = source[key];
+            }
+        }
+
+        return target;
     }
 
     createInstance(loadResult, position, rotation, scale, id) {
@@ -175,10 +207,14 @@ class MapEngine {
                 objectData.id
             );
 
+            const modelInfo = this.getModelDefinition(objectData.model);
+
             // Set instance metadata
-            instance.metadata = { 
-                ...instance.metadata, 
-                isModel: true
+            instance.metadata = {
+                ...instance.metadata,
+                isModel: true,
+                modelDefinition: modelInfo,
+                builtInActions: Array.isArray(modelInfo?.built_in_actions) ? modelInfo.built_in_actions : []
             };
             
             // Add type and sub_type for character models
@@ -187,10 +223,14 @@ class MapEngine {
                 objectData.model.includes('Character_Soldier')) {
                 instance.metadata.type = "character";
                 instance.metadata.sub_type = "enemy";
+            } else {
+                if (objectData.type || modelInfo?.type) {
+                    instance.metadata.type = objectData.type || modelInfo.type;
+                }
+                if (objectData.sub_type || modelInfo?.sub_type) {
+                    instance.metadata.sub_type = objectData.sub_type || modelInfo.sub_type;
+                }
             }
-            
-            // Find the model in modelData
-            const modelInfo = this.modelData.models.find(m => m.name === objectData.model);
             
             // Get and store merged attributes
             const attributes = this.getModelAttributes(modelInfo, objectData);
@@ -296,15 +336,16 @@ class MapEngine {
                 );
 
                 if (instance) {
-                    // Find the model in modelData
-                    const modelInfo = this.modelData.models.find(m => m.name === object.model.replace('.glb', ''));
+                    const modelInfo = this.getModelDefinition(object.model);
                     
                     // Get and store merged attributes
                     const attributes = this.getModelAttributes(modelInfo, object);
                     instance.metadata = { 
                         ...instance.metadata, 
                         attributes,
-                        isModel: true
+                        isModel: true,
+                        modelDefinition: modelInfo,
+                        builtInActions: Array.isArray(modelInfo?.built_in_actions) ? modelInfo.built_in_actions : []
                     };
                     
                     // Add type and sub_type metadata if available in object
@@ -313,6 +354,12 @@ class MapEngine {
                     }
                     if (object.sub_type) {
                         instance.metadata.sub_type = object.sub_type;
+                    }
+                    if (!object.type && modelInfo?.type) {
+                        instance.metadata.type = modelInfo.type;
+                    }
+                    if (!object.sub_type && modelInfo?.sub_type) {
+                        instance.metadata.sub_type = modelInfo.sub_type;
                     }
                     
                     console.log('Instance created at position:', {
@@ -347,69 +394,94 @@ class MapEngine {
     /**
      * Saves the current map to JSON
      */
-    async saveMap() {
+    async saveMap(mapName = null) {
         try {
-            // Get all objects from the scene
+            if (!this.mapData) {
+                this.mapData = { objects: [] };
+            }
+
+            // Build the saved object list from tracked Babylon instances.
             const savedObjects = [];
+            const existingObjectsById = new Map(
+                Array.isArray(this.mapData.objects)
+                    ? this.mapData.objects.map(object => [object.id, object])
+                    : []
+            );
             
-            // Go through each object in the scene
-            for (let i = 0; i < this.scene.children.length; i++) {
-                const object = this.scene.children[i];
-                
-                // Skip if it's not a model (like lights, camera, grid)
-                if (!object.metadata || !object.metadata.isModel) continue;
-                
-                // Create a data structure for this object
+            // Go through each placed object instance.
+            for (const [id, object] of this.instances.entries()) {
+                if (!object || !object.metadata || !object.metadata.isModel) continue;
+
+                const existingObject = existingObjectsById.get(id) || {};
+                const modelName = object.metadata.modelName || existingObject.model;
+
+                if (!modelName) {
+                    console.warn(`Skipping save for object "${id}" because no model name was found.`);
+                    continue;
+                }
+
                 const objectData = {
-                    id: object.id,
-                    model: object.name,
+                    id,
+                    model: modelName,
                     position: {
                         x: object.position.x,
                         y: object.position.y,
                         z: object.position.z
                     },
                     rotation: {
-                        x: object.rotation.x,
-                        y: object.rotation.y,
-                        z: object.rotation.z
+                        x: BABYLON.Tools.ToDegrees(object.rotation.x),
+                        y: BABYLON.Tools.ToDegrees(object.rotation.y),
+                        z: BABYLON.Tools.ToDegrees(object.rotation.z)
                     },
                     scale: {
-                        x: object.scale.x,
-                        y: object.scale.y,
-                        z: object.scale.z
+                        x: object.scaling.x,
+                        y: object.scaling.y,
+                        z: object.scaling.z
                     }
                 };
                 
                 // Preserve type and sub_type if they exist
                 if (object.metadata.type) {
                     objectData.type = object.metadata.type;
+                } else if (existingObject.type) {
+                    objectData.type = existingObject.type;
                 }
                 if (object.metadata.sub_type) {
                     objectData.sub_type = object.metadata.sub_type;
+                } else if (existingObject.sub_type) {
+                    objectData.sub_type = existingObject.sub_type;
                 }
                 
                 // For character models, set type and sub_type
-                if (object.name && (
-                    object.name.includes('Character_Enemy') || 
-                    object.name.includes('Character_Hazmat') || 
-                    object.name.includes('Character_Soldier')
+                if (modelName && (
+                    modelName.includes('Character_Enemy') || 
+                    modelName.includes('Character_Hazmat') || 
+                    modelName.includes('Character_Soldier')
                 )) {
                     objectData.type = "character";
                     objectData.sub_type = "enemy";
                 }
                 
                 // Get model object from modelData
-                const modelObject = this.modelData.models.find(model => model.name === object.name);
+                const modelObject = this.modelData.models.find(model => model.name === modelName);
                 
                 // Handle attributes - ensure it's an object, not an array
-                if (object.metadata.attributes && typeof object.metadata.attributes === 'object') {
+                if (
+                    object.metadata.attributes &&
+                    typeof object.metadata.attributes === 'object' &&
+                    !Array.isArray(object.metadata.attributes)
+                ) {
                     // Use existing metadata attributes
                     objectData.attributes = { ...object.metadata.attributes };
                 } else if (modelObject) {
                     // Get attributes based on the model and this object instance
-                    objectData.attributes = this.getModelAttributes(modelObject, objectData);
+                    objectData.attributes = this.getModelAttributes(modelObject, existingObject);
                 } else {
-                    objectData.attributes = {};
+                    objectData.attributes = existingObject.attributes &&
+                        typeof existingObject.attributes === 'object' &&
+                        !Array.isArray(existingObject.attributes)
+                        ? { ...existingObject.attributes }
+                        : {};
                 }
                 
                 savedObjects.push(objectData);
@@ -423,29 +495,46 @@ class MapEngine {
             
             console.log('Map data ready to save:', this.mapData);
             
+            // If a map name was provided by the UI, use it
+            if (typeof mapName === 'string' && mapName.trim().length > 0) {
+                this.mapData.name = mapName.trim();
+            }
+            
             // If we have a map name already, use it
-            let mapName = this.mapData.name;
+            let finalMapName = this.mapData.name;
             
             // If no name yet, ask for one
-            if (!mapName || mapName === 'Untitled Map') {
-                mapName = prompt('Please enter a name for your map:', 'My Custom Map');
-                if (mapName) {
-                    this.mapData.name = mapName;
+            if (!finalMapName || finalMapName === 'Untitled Map') {
+                finalMapName = prompt('Please enter a name for your map:', 'My Custom Map');
+                if (finalMapName) {
+                    this.mapData.name = finalMapName;
                 } else {
                     this.mapData.name = 'My Custom Map';
                 }
             }
             
-            // Create a blob of the map data
-            const blob = new Blob([JSON.stringify(this.mapData, null, 2)], {type: 'application/json'});
+            // Persist to server so gameplay loads the updated map_data.json
+            const response = await fetch('/save-map', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.mapData)
+            });
             
-            // Create a download link and trigger it
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `${this.mapData.name.replace(/\s+/g, '_')}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            let result = null;
+            try {
+                result = await response.json();
+            } catch (_) {
+                // ignore parse errors; we'll use HTTP status as the signal
+            }
+            
+            if (!response.ok) {
+                const message = (result && (result.details || result.error)) ?
+                    (result.details || result.error) :
+                    `Failed to save map (${response.status} ${response.statusText})`;
+                throw new Error(message);
+            }
             
             // Show confirmation
             const status = document.getElementById('status');
@@ -464,7 +553,7 @@ class MapEngine {
             
             // Show error
             const status = document.getElementById('status');
-            status.textContent = 'Error saving map!';
+            status.textContent = `Error saving map: ${error.message || error}`;
             status.style.color = '#F44336';
             
             // Clear status after a delay
@@ -475,6 +564,23 @@ class MapEngine {
             
             return false;
         }
+    }
+
+    /**
+     * Exports the current in-memory map JSON as a downloaded file.
+     * This does NOT persist to the server.
+     */
+    downloadMapJson(filename = null) {
+        if (!this.mapData) return false;
+        
+        const blob = new Blob([JSON.stringify(this.mapData, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename || `${(this.mapData.name || 'map').replace(/\s+/g, '_')}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return true;
     }
 
     generateUUID() {
@@ -520,31 +626,19 @@ class MapEngine {
             if (typeof window.GameConfig !== 'undefined' && model?.name && window.GameConfig[model.name]) {
                 attributes = { ...window.GameConfig[model.name] };
             }
+
+            if (model?.default_attributes && typeof model.default_attributes === 'object' && !Array.isArray(model.default_attributes)) {
+                attributes = this.mergeAttributeValues(attributes, model.default_attributes);
+            }
             
             // If the model has attributes in model_data.json, merge them
             if(model?.attributes && typeof model.attributes === 'object') {
-                // For nested attributes (like hitboxes), merge recursively instead of overwriting
-                for (const key in model.attributes) {
-                    if (typeof model.attributes[key] === 'object' && !Array.isArray(model.attributes[key]) && 
-                        typeof attributes[key] === 'object' && !Array.isArray(attributes[key])) {
-                        attributes[key] = { ...attributes[key], ...model.attributes[key] };
-                    } else {
-                        attributes[key] = model.attributes[key];
-                    }
-                }
+                attributes = this.mergeAttributeValues(attributes, model.attributes);
             }
             
             // If the object has instance-specific attributes in map_data, merge them
             if(object?.attributes && typeof object.attributes === 'object') {
-                // For nested attributes (like hitboxes), merge recursively
-                for (const key in object.attributes) {
-                    if (typeof object.attributes[key] === 'object' && !Array.isArray(object.attributes[key]) && 
-                        typeof attributes[key] === 'object' && !Array.isArray(attributes[key])) {
-                        attributes[key] = { ...attributes[key], ...object.attributes[key] };
-                    } else {
-                        attributes[key] = object.attributes[key];
-                    }
-                }
+                attributes = this.mergeAttributeValues(attributes, object.attributes);
             }
             
             return attributes;
@@ -570,12 +664,23 @@ class MapEngine {
             }
             
             this.modelData = await response.json();
+            this.modelDataMap = new Map();
+
+            if (Array.isArray(this.modelData.models)) {
+                this.modelData.models.forEach(model => {
+                    if (model?.name) {
+                        this.modelDataMap.set(model.name, model);
+                    }
+                });
+            }
+
             console.log('Model data loaded successfully:', this.modelData);
             return this.modelData;
         } catch (error) {
             console.error('Error loading model data:', error);
             // Initialize with empty model data if loading fails
             this.modelData = { models: [] };
+            this.modelDataMap = new Map();
             return this.modelData;
         }
     }

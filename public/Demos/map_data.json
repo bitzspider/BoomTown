@@ -1,7 +1,7 @@
 {
   "id": "208fh8273hfh82fh",
   "name": "Default Map",
-  "version": "1.0",
+  "version": "1.3",
   "gridSize": 1,
   "showGrid": true,
   "objects": [
@@ -22,7 +22,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "container",
+      "attributes": {}
     },
     {
       "id": "barrier_concrete_1",
@@ -41,7 +44,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "structure",
+      "attributes": {}
     },
     {
       "id": "tree_pine_1",
@@ -60,7 +66,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "vegetation",
+      "attributes": {}
     },
     {
       "id": "Tree_02d5a87f-b537-432c-be95-d2946b734b06",
@@ -79,7 +88,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "vegetation",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_a3e23fd6-f23d-4673-9c9b-a30a4564acd4",
@@ -98,7 +110,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_1a799834-0ff1-4170-bb65-93e36808b10a",
@@ -117,7 +132,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_5a975f9f-da2c-4634-9e9f-c259a6a6573f",
@@ -136,7 +154,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Box of bullets_fbfbe596-0b90-45b9-9dfc-dce0f97cf6ae",
@@ -155,73 +176,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
-    },
-    {
-      "id": "Character_Enemy_dd4e0676-f64e-4b10-b555-8135f47bc623",
-      "model": "Character_Enemy.glb",
-      "type": "character",
-      "sub_type": "enemy",
-      "attributes": [],
-      "position": {
-        "x": -24.535403192957375,
-        "y": 0,
-        "z": 11.270242333714611
       },
-      "rotation": {
-        "x": 0,
-        "y": 0,
-        "z": 0
-      },
-      "scale": {
-        "x": 1,
-        "y": 1,
-        "z": 1
-      }
-    },
-    {
-      "id": "Character_Soldier_53edca60-62d5-434f-a8c4-6925cb5d8704",
-      "model": "Character_Soldier.glb",
-      "type": "character",
-      "sub_type": "enemy",
-      "attributes": [],
-      "position": {
-        "x": -40.96057672629328,
-        "y": 0,
-        "z": 42.97887684980853
-      },
-      "rotation": {
-        "x": 0,
-        "y": 0,
-        "z": 0
-      },
-      "scale": {
-        "x": 1,
-        "y": 1,
-        "z": 1
-      }
-    },
-    {
-      "id": "Character_Hazmat_d692f5c5-f170-417d-bbcc-ce4a8d569473",
-      "model": "Character_Hazmat.glb",
-      "type": "character",
-      "sub_type": "enemy",
-      "attributes": [],
-      "position": {
-        "x": -43.61014893341739,
-        "y": 0,
-        "z": -7.573929326665665
-      },
-      "rotation": {
-        "x": 0,
-        "y": 0,
-        "z": 0
-      },
-      "scale": {
-        "x": 1,
-        "y": 1,
-        "z": 1
-      }
+      "type": "loot",
+      "sub_type": "ammo",
+      "attributes": {}
     },
     {
       "id": "Street Light_18c3e11f-9da0-451b-b4db-e3b64d53b83e",
@@ -240,7 +198,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "light",
+      "attributes": {}
     },
     {
       "id": "Structure-oUkHO0kbQt_01cb7412-fe58-486f-82b3-37268879ca6d",
@@ -259,6 +220,11 @@
         "x": 1,
         "y": 1,
         "z": 1
+      },
+      "type": "object",
+      "sub_type": "structure",
+      "attributes": {
+        "destructible": false
       }
     },
     {
@@ -278,7 +244,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "barrier",
+      "attributes": {}
     },
     {
       "id": "Barrier Fixed_da088215-7c38-4ff3-8571-656461501e30",
@@ -297,7 +266,10 @@
         "x": 1,
         "y": 1,
         "z": 1
-      }
+      },
+      "type": "object",
+      "sub_type": "barrier",
+      "attributes": {}
     },
     {
       "id": "Barrier Fixed_2c46eede-44d2-4ceb-a65d-e23db4b47caa",
@@ -316,7 +288,213 @@
         "x": 1,
         "y": 1,
         "z": 1
+      },
+      "type": "object",
+      "sub_type": "barrier",
+      "attributes": {
+        "destructible": false
       }
+    },
+    {
+      "id": "Tires_ade254f6-d5b5-43b8-babc-c903a39f5cf6",
+      "model": "Tires.glb",
+      "position": {
+        "x": 15.561101275313455,
+        "y": 0,
+        "z": 11.441757439101979
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "decoration",
+      "attributes": {}
+    },
+    {
+      "id": "Wood Planks_63944661-fd33-4117-83da-84b48fdb38d5",
+      "model": "Wood Planks.glb",
+      "position": {
+        "x": -1.2874397025717244,
+        "y": 0,
+        "z": 8.759679773118688
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "barrier",
+      "attributes": {}
+    },
+    {
+      "id": "Tree-1BkD9JnKrE_c1e944f7-622d-49c2-b2c0-5f1284609ec9",
+      "model": "Tree-1BkD9JnKrE.glb",
+      "position": {
+        "x": 0.3294621915568303,
+        "y": 0,
+        "z": 15.935785082347843
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "vegetation",
+      "attributes": {}
+    },
+    {
+      "id": "Debris Pile_4d52ed1e-49d3-4f71-82ad-8fc01a5ab20c",
+      "model": "Debris Pile.glb",
+      "position": {
+        "x": 13.639328803421472,
+        "y": 0,
+        "z": -14.866548365371276
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "decoration",
+      "attributes": {}
+    },
+    {
+      "id": "Debris Papers-CCRSdAJxsD_78c4f87f-3c99-4695-aea6-82269ed6d38f",
+      "model": "Debris Papers-CCRSdAJxsD.glb",
+      "position": {
+        "x": 15.163698317962245,
+        "y": 0,
+        "z": 13.006988386361162
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "attributes": {}
+    },
+    {
+      "id": "Debris Papers-MujITy1NRR_a4c40c5f-6f40-4232-ab66-f30ac081adfa",
+      "model": "Debris Papers-MujITy1NRR.glb",
+      "position": {
+        "x": -0.1984412948011336,
+        "y": 0,
+        "z": -6.349865275161331
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "decoration",
+      "attributes": {}
+    },
+    {
+      "id": "Water Tank Floor_a90971d8-c049-47fe-80a9-bf5d29786e63",
+      "model": "Water Tank Floor.glb",
+      "position": {
+        "x": 8.573834652573211,
+        "y": 0,
+        "z": -16.083355919687573
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "decoration",
+      "attributes": {}
+    },
+    {
+      "id": "Gas Tank_7a820430-74fc-4724-8c28-51c5e3c70cfe",
+      "model": "Gas Tank.glb",
+      "position": {
+        "x": 11.980455989611144,
+        "y": 0,
+        "z": 10.378642941006433
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "hazard",
+      "attributes": {
+        "destructible": true,
+        "explosion_radius": 6,
+        "explosion_damage": 90
+      }
+    },
+    {
+      "id": "Exploding Barrel Spil_b45fa64e-b760-475c-804c-e28318aeda93",
+      "model": "Exploding Barrel Spil.glb",
+      "position": {
+        "x": -21.067573338631096,
+        "y": 0,
+        "z": -18.05021588844968
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "type": "object",
+      "sub_type": "hazard",
+      "attributes": {}
     }
   ],
   "camera": {

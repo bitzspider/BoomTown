@@ -540,11 +540,64 @@ async function startGame(selectedMapId) {
     }
 }
 
+function getEnemyInstanceOverrides(enemyObj) {
+    if (!enemyObj || typeof enemyObj !== 'object') return {};
+    
+    const attrs = enemyObj.attributes;
+    if (attrs && typeof attrs === 'object' && !Array.isArray(attrs)) return attrs;
+    
+    const props = enemyObj.properties;
+    if (props && typeof props === 'object' && !Array.isArray(props)) return props;
+    
+    return {};
+}
+
+function normalizeEnemyConfig(rawConfig) {
+    if (!rawConfig || typeof rawConfig !== 'object') return {};
+    
+    const normalized = { ...rawConfig };
+    
+    // Map snake_case keys (from model_data/map_data) to the camelCase keys used by the enemy controller.
+    const keyMap = {
+        idle_duration: 'idleDuration',
+        move_speed: 'moveSpeed',
+        rotation_speed: 'rotationSpeed',
+        chase_speed: 'chaseSpeed',
+        detection_range: 'detectionRange',
+        aggro_time: 'aggroTime',
+        death_anim_duration: 'deathAnimDuration',
+        hit_reaction_duration: 'hitReactionDuration',
+        search_duration: 'searchDuration',
+        attack_range: 'attackRange',
+        dodge_frequency: 'dodgeFrequency',
+        min_dodge_distance: 'minDodgeDistance',
+        max_dodge_distance: 'maxDodgeDistance',
+        circle_strafing: 'circleStrafing',
+        min_attack_distance: 'minAttackDistance',
+        max_attack_distance: 'maxAttackDistance',
+        attack_mode_decision_time: 'attackModeDecisionTime',
+        shoot_probability: 'shootProbability',
+        attack_shoot_probability: 'attackShootProbability',
+        burst_fire_enabled: 'burstFireEnabled',
+        burst_shot_count: 'burstShotCount',
+        burst_fire_interval: 'burstFireInterval',
+    };
+    
+    Object.keys(keyMap).forEach(snakeKey => {
+        const camelKey = keyMap[snakeKey];
+        if (snakeKey in rawConfig && !(camelKey in rawConfig)) {
+            normalized[camelKey] = rawConfig[snakeKey];
+        }
+    });
+    
+    return normalized;
+}
+
 // Spawn initial enemies
 async function spawnInitialEnemies() {
     try {
-        // Fetch map data
-        const mapDataResponse = await fetch('/Demos/map_data.json');
+        // Fetch map data from the same endpoint used by map rendering
+        const mapDataResponse = await fetch('/map-data');
         const mapData = await mapDataResponse.json();
 
         // Fetch model data
@@ -552,9 +605,9 @@ async function spawnInitialEnemies() {
         const modelData = await modelDataResponse.json();
 
         // Find all enemy objects in the map data
-        const enemyObjects = mapData.objects.filter(obj => 
-            obj.model.startsWith('Character_') && 
-            obj.model.endsWith('.glb')
+        const enemyObjects = mapData.objects.filter(obj =>
+            (obj.type === 'character' && obj.sub_type === 'enemy') ||
+            (obj.model && obj.model.startsWith('Character_') && obj.model.endsWith('.glb'))
         );
 
         console.log(`Spawning ${enemyObjects.length} enemies from map data`);
@@ -603,16 +656,15 @@ async function spawnInitialEnemies() {
                 console.log(`Spawning enemy model: ${enemyObj.model}`);
                 
                 // Create merged configuration by combining model details with map-specific overrides
-                let mergedConfig = { ...modelDetails };
+                const baseModelConfig = modelDetails ? { ...modelDetails } : {};
+                const instanceOverrides = getEnemyInstanceOverrides(enemyObj);
+                let mergedConfig = normalizeEnemyConfig({ ...baseModelConfig, ...instanceOverrides });
                 
-                // Add map-specific properties if they exist in the enemyObj
-                if (enemyObj.properties) {
-                    console.log(`Applying map-specific properties for enemy at (${enemyObj.position.x}, ${enemyObj.position.z})`, enemyObj.properties);
-                    
-                    // Merge properties from map data
-                    Object.keys(enemyObj.properties).forEach(key => {
-                        mergedConfig[key] = enemyObj.properties[key];
-                    });
+                if (Object.keys(instanceOverrides).length > 0) {
+                    console.log(
+                        `Applying map-specific overrides for enemy at (${enemyObj.position.x}, ${enemyObj.position.z})`,
+                        instanceOverrides
+                    );
                 }
 
                 // Spawn the enemy
@@ -3032,12 +3084,9 @@ function spawnEnemy() {
                 };
                 
                 debugLog(`Spawning enemy from map at position: ${JSON.stringify(position)}`);
-                // Pass map-specific properties including the model name from map data
-                const properties = {
-                    model: enemyObj.model,
-                    ...(enemyObj.attributes || {}),
-                };
-                spawnEnemyAtPosition(position, properties);
+                // Pass map-specific overrides, preferring `attributes` but supporting legacy `properties`
+                const overrides = getEnemyInstanceOverrides(enemyObj);
+                spawnEnemyAtPosition(position, { model: enemyObj.model, ...overrides });
             });
         }
     }).catch(error => {
@@ -3085,6 +3134,9 @@ function spawnEnemyAtPosition(position, mapProperties = null) {
     if (mapProperties) {
         mergedConfig = { ...mergedConfig, ...mapProperties };
     }
+    
+    // Normalize keys so the enemy controller receives the expected config shape
+    mergedConfig = normalizeEnemyConfig(mergedConfig);
     
     // Load the enemy model using the controller with proper config hierarchy
     loadEnemyModel(scene, new BABYLON.Vector3(position.x, 0, position.z), enemyModel, mergedConfig, (enemyData) => {

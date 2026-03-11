@@ -166,6 +166,12 @@
         .tool-item.selected img {
             border-color: rgba(255, 255, 255, 0.8);
         }
+        .tool-item-main {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 0;
+        }
         .tool-category {
             margin: 15px 0;
         }
@@ -173,6 +179,193 @@
             font-weight: bold;
             color: #4CAF50;
             margin-bottom: 8px;
+        }
+        .import-section,
+        .tool-details {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(76, 175, 80, 0.25);
+            border-radius: 6px;
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .section-header .tool-category-title {
+            margin-bottom: 0;
+        }
+        .import-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .import-grid.full {
+            grid-template-columns: 1fr;
+        }
+        .import-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .import-field label {
+            font-size: 0.9em;
+            color: #cfe9cf;
+        }
+        .import-field input,
+        .import-field select,
+        .import-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            color: white;
+        }
+        .import-field textarea {
+            min-height: 70px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        .helper-text {
+            color: #9fb69f;
+            font-size: 0.82em;
+            margin: 4px 0 0;
+        }
+        .tool-item-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .tool-item-name {
+            font-weight: 600;
+        }
+        .tool-item-meta,
+        .tool-details-meta {
+            color: #cccccc;
+            font-size: 0.82em;
+        }
+        .actions-list {
+            margin: 8px 0 0 18px;
+            padding: 0;
+        }
+        .actions-list li {
+            margin-bottom: 4px;
+        }
+        .tool-menu-wrapper {
+            position: relative;
+            margin-left: 8px;
+        }
+        .tool-menu-button {
+            width: 32px;
+            height: 32px;
+            margin: 0;
+            padding: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: white;
+            font-size: 18px;
+            line-height: 1;
+        }
+        .tool-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 120px;
+            padding: 6px;
+            background: #111;
+            border: 1px solid rgba(76, 175, 80, 0.35);
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            z-index: 1004;
+            display: none;
+        }
+        .tool-menu.visible {
+            display: block;
+        }
+        .tool-menu button {
+            display: block;
+            width: 100%;
+            margin: 0;
+            text-align: left;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 10px;
+        }
+        .tool-menu button:hover {
+            background: rgba(76, 175, 80, 0.2);
+        }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .modal-backdrop.visible {
+            display: flex;
+        }
+        .modal-window {
+            width: min(760px, 100%);
+            max-height: 90vh;
+            overflow-y: auto;
+            background: #171717;
+            border: 1px solid rgba(76, 175, 80, 0.4);
+            border-radius: 10px;
+            padding: 18px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .modal-header h3 {
+            margin: 0;
+            color: #4CAF50;
+        }
+        .modal-close {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: white;
+            margin: 0;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .modal-actions button {
+            margin: 0;
+        }
+        .danger-button {
+            background: #b63b3b;
+        }
+        .danger-button:hover {
+            background: #a33232;
         }
         #selection-info {
             position: fixed;
@@ -371,6 +564,28 @@
             <h2>🛠️ Toolbox</h2>
             <button class="minimize-btn">✕</button>
         </div>
+        <div class="import-section">
+            <div class="section-header">
+                <div class="tool-category-title">Model Library</div>
+                <button id="open-add-model-modal" type="button">Add Model</button>
+            </div>
+            <p class="helper-text">Use the add button to import a model. Use the kebab menu on any model to edit or delete it.</p>
+            <datalist id="toolbox-category-options">
+                <option value="Characters"></option>
+                <option value="Weapons"></option>
+                <option value="Items"></option>
+                <option value="Structures"></option>
+                <option value="Barriers"></option>
+                <option value="Props"></option>
+                <option value="Furniture"></option>
+                <option value="Environment"></option>
+                <option value="Other"></option>
+            </datalist>
+        </div>
+        <div id="tool-selection-details" class="tool-details">
+            <div class="tool-category-title">Selected Tool</div>
+            <p class="no-attributes">Select a model to view its defaults and built-in actions.</p>
+        </div>
         <div id="tool-categories"></div>
     </div>
 
@@ -454,9 +669,144 @@
                     <p class="no-attributes">No attributes available for this model</p>
                 </div>
             </div>
+            <div class="coordinate-group">
+                <h4>Built-in Actions</h4>
+                <div id="built-in-actions">
+                    <p class="no-attributes">No actions listed for this model.</p>
+                </div>
+            </div>
             
             <div class="key-hint">
                 Arrow keys: Move object horizontally | Shift + Left/Right: Rotate object | Shift + Up/Down: Move object vertically | Hold CTRL for fine control (0.1 units)
+            </div>
+        </div>
+    </div>
+
+    <div id="model-modal-backdrop" class="modal-backdrop">
+        <div class="modal-window">
+            <div class="modal-header">
+                <h3 id="model-modal-title">Add Model</h3>
+                <button id="close-model-modal" class="modal-close" type="button">✕</button>
+            </div>
+            <form id="model-modal-form">
+                <input type="hidden" id="model-modal-mode" value="add">
+                <input type="hidden" id="model-modal-original-name" value="">
+                <div class="import-grid full">
+                    <div class="import-field">
+                        <label for="import-model-file">Model File</label>
+                        <input type="file" id="import-model-file" accept=".glb,.gltf">
+                        <p id="model-file-helper" class="helper-text">Required when adding a new model. Leave empty while editing to keep the existing file.</p>
+                    </div>
+                    <div class="import-field">
+                        <label for="import-thumbnail-file">Thumbnail Image</label>
+                        <input type="file" id="import-thumbnail-file" accept=".png,.jpg,.jpeg,.webp">
+                    </div>
+                </div>
+                <div class="import-grid">
+                    <div class="import-field">
+                        <label for="import-display-name">Display Name</label>
+                        <input type="text" id="import-display-name" placeholder="My New Model">
+                    </div>
+                    <div class="import-field">
+                        <label for="import-category">Category</label>
+                        <input type="text" id="import-category" list="toolbox-category-options" value="Other">
+                    </div>
+                </div>
+                <div class="import-grid">
+                    <div class="import-field">
+                        <label for="import-type">Type</label>
+                        <input type="text" id="import-type" value="object" placeholder="object">
+                    </div>
+                    <div class="import-field">
+                        <label for="import-subtype">Sub Type</label>
+                        <input type="text" id="import-subtype" value="decoration" placeholder="decoration">
+                    </div>
+                </div>
+                <div class="import-grid full">
+                    <div class="import-field">
+                        <label for="import-description">Description</label>
+                        <input type="text" id="import-description" placeholder="Optional model description">
+                    </div>
+                </div>
+                <div class="import-grid">
+                    <div class="import-field">
+                        <label for="default-pos-x">Default Pos X Offset</label>
+                        <input type="number" id="default-pos-x" value="0" step="0.1">
+                    </div>
+                    <div class="import-field">
+                        <label for="default-pos-y">Default Pos Y Offset</label>
+                        <input type="number" id="default-pos-y" value="0" step="0.1">
+                    </div>
+                </div>
+                <div class="import-grid">
+                    <div class="import-field">
+                        <label for="default-pos-z">Default Pos Z Offset</label>
+                        <input type="number" id="default-pos-z" value="0" step="0.1">
+                    </div>
+                    <div class="import-field">
+                        <label for="default-rot-x">Default Rot X</label>
+                        <input type="number" id="default-rot-x" value="0" step="5">
+                    </div>
+                </div>
+                <div class="import-grid">
+                    <div class="import-field">
+                        <label for="default-rot-y">Default Rot Y</label>
+                        <input type="number" id="default-rot-y" value="0" step="5">
+                    </div>
+                    <div class="import-field">
+                        <label for="default-rot-z">Default Rot Z</label>
+                        <input type="number" id="default-rot-z" value="0" step="5">
+                    </div>
+                </div>
+                <div class="import-grid">
+                    <div class="import-field">
+                        <label for="default-scale-x">Default Scale X</label>
+                        <input type="number" id="default-scale-x" value="1" step="0.1">
+                    </div>
+                    <div class="import-field">
+                        <label for="default-scale-y">Default Scale Y</label>
+                        <input type="number" id="default-scale-y" value="1" step="0.1">
+                    </div>
+                </div>
+                <div class="import-grid">
+                    <div class="import-field">
+                        <label for="default-scale-z">Default Scale Z</label>
+                        <input type="number" id="default-scale-z" value="1" step="0.1">
+                    </div>
+                    <div class="import-field">
+                        <label for="import-built-in-actions">Built-in Actions</label>
+                        <textarea id="import-built-in-actions" placeholder="One action per line, for example:&#10;Idle&#10;Walk&#10;Attack"></textarea>
+                    </div>
+                </div>
+                <div class="import-grid full">
+                    <div class="import-field">
+                        <label for="import-default-settings">Default Settings (JSON)</label>
+                        <textarea id="import-default-settings" placeholder='{"destructible": false}'>{}</textarea>
+                        <p class="helper-text">These values become the new object's default editable attributes.</p>
+                    </div>
+                </div>
+                <label class="checkbox-row" for="import-replace-existing">
+                    <input type="checkbox" id="import-replace-existing">
+                    <span id="replace-existing-label">Replace existing model metadata/files if the names already exist</span>
+                </label>
+                <div class="modal-actions">
+                    <button id="cancel-model-modal" type="button">Cancel</button>
+                    <button id="submit-model-modal" type="submit">Save Model</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="confirm-modal-backdrop" class="modal-backdrop">
+        <div class="modal-window" style="width:min(440px,100%)">
+            <div class="modal-header">
+                <h3 id="confirm-modal-title">Confirm</h3>
+                <button id="close-confirm-modal" class="modal-close" type="button">✕</button>
+            </div>
+            <p id="confirm-modal-message"></p>
+            <div class="modal-actions">
+                <button id="confirm-modal-cancel" type="button">Cancel</button>
+                <button id="confirm-modal-confirm" class="danger-button" type="button">Delete</button>
             </div>
         </div>
     </div>
@@ -474,535 +824,1005 @@
     <script src="js/map_designer_engine.js"></script>
     
     <script>
-        // Global variables
         let engine, scene, camera;
         let mapEngine;
         let ground, gridMaterial;
         let canvas;
-        let selectedTool = null;
+        let selectedToolModel = null;
         let selectedObject = null;
         let isShiftPressed = false;
+        let activeToolMenu = null;
+        let confirmDialogResolver = null;
+
+        const DEFAULT_TOOL_ICON = '/icons/model-icon.png';
+        const DEFAULT_CATEGORIES = [
+            'Characters',
+            'Weapons',
+            'Items',
+            'Structures',
+            'Barriers',
+            'Props',
+            'Furniture',
+            'Environment',
+            'Other'
+        ];
 
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                 const r = Math.random() * 16 | 0;
-                const v = c == 'x' ? r : (r & 0x3 | 0x8);
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
             });
+        }
+
+        function stripModelExtension(modelName = '') {
+            return modelName.replace(/\.(glb|gltf)$/i, '');
+        }
+
+        function isPlainObject(value) {
+            return value !== null && typeof value === 'object' && !Array.isArray(value);
+        }
+
+        function cloneData(value) {
+            if (value === undefined) return undefined;
+
+            try {
+                return JSON.parse(JSON.stringify(value));
+            } catch (_) {
+                return value;
+            }
+        }
+
+        function deepMerge(base, override) {
+            const result = isPlainObject(base) ? cloneData(base) : {};
+
+            if (!isPlainObject(override)) {
+                return result;
+            }
+
+            Object.entries(override).forEach(([key, value]) => {
+                if (isPlainObject(value) && isPlainObject(result[key])) {
+                    result[key] = deepMerge(result[key], value);
+                } else {
+                    result[key] = cloneData(value);
+                }
+            });
+
+            return result;
+        }
+
+        function normalizeVector3(vector, fallback) {
+            const source = isPlainObject(vector) ? vector : {};
+
+            return {
+                x: Number.isFinite(Number(source.x)) ? Number(source.x) : fallback.x,
+                y: Number.isFinite(Number(source.y)) ? Number(source.y) : fallback.y,
+                z: Number.isFinite(Number(source.z)) ? Number(source.z) : fallback.z
+            };
+        }
+
+        function setStatus(message, color = 'white') {
+            const status = document.getElementById('status');
+            if (!status) return;
+
+            status.textContent = message;
+            status.style.color = color;
+        }
+
+        function resetStatus(delay = 3000) {
+            window.setTimeout(() => {
+                setStatus('Ready', 'white');
+            }, delay);
+        }
+
+        function getFallbackCategory(modelName = '') {
+            const lowerName = modelName.toLowerCase();
+
+            if (lowerName.includes('character')) return 'Characters';
+            if (
+                lowerName.includes('ak47') ||
+                lowerName.includes('pistol') ||
+                lowerName.includes('revolver') ||
+                lowerName.includes('shotgun') ||
+                lowerName.includes('sniper') ||
+                lowerName.includes('launcher') ||
+                lowerName.includes('knife') ||
+                lowerName.includes('smg') ||
+                lowerName.includes('grenade')
+            ) {
+                return 'Weapons';
+            }
+            if (
+                lowerName.includes('health') ||
+                lowerName.includes('key') ||
+                lowerName.includes('ammo') ||
+                lowerName.includes('bullets') ||
+                lowerName.includes('landmine') ||
+                lowerName.includes('trap')
+            ) {
+                return 'Items';
+            }
+            if (lowerName.includes('structure') || lowerName.includes('container')) return 'Structures';
+            if (lowerName.includes('barrier') || lowerName.includes('wall') || lowerName.includes('fence')) return 'Barriers';
+            if (
+                lowerName.includes('sofa') ||
+                lowerName.includes('pallet') ||
+                lowerName.includes('crate') ||
+                lowerName.includes('furniture')
+            ) {
+                return 'Furniture';
+            }
+            if (
+                lowerName.includes('tree') ||
+                lowerName.includes('debris') ||
+                lowerName.includes('pipes') ||
+                lowerName.includes('wood')
+            ) {
+                return 'Environment';
+            }
+            if (
+                lowerName.includes('barrel') ||
+                lowerName.includes('tank') ||
+                lowerName.includes('car') ||
+                lowerName.includes('cone') ||
+                lowerName.includes('street') ||
+                lowerName.includes('dumpster')
+            ) {
+                return 'Props';
+            }
+
+            return 'Other';
+        }
+
+        function getImageCandidates(model) {
+            const imageName = stripModelExtension(model.name).replace(/ /g, '_');
+            const candidates = [];
+
+            if (model.thumbnail) {
+                candidates.push(model.thumbnail);
+            }
+
+            candidates.push(`/img/${imageName}.webp`);
+            candidates.push(DEFAULT_TOOL_ICON);
+            return [...new Set(candidates)];
+        }
+
+        function applyImageFallback(img, candidates, index = 0) {
+            if (index >= candidates.length) {
+                img.src = DEFAULT_TOOL_ICON;
+                img.onerror = null;
+                return;
+            }
+
+            img.onerror = () => applyImageFallback(img, candidates, index + 1);
+            img.src = candidates[index];
+        }
+
+        function formatActionLabel(action) {
+            if (typeof action === 'string') {
+                return action;
+            }
+
+            if (isPlainObject(action)) {
+                if (typeof action.name === 'string' && action.name.trim()) {
+                    return action.name.trim();
+                }
+
+                if (typeof action.label === 'string' && action.label.trim()) {
+                    return action.label.trim();
+                }
+            }
+
+            return JSON.stringify(action);
+        }
+
+        function renderActionsList(container, actions, emptyText) {
+            container.innerHTML = '';
+
+            if (!Array.isArray(actions) || actions.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'no-attributes';
+                empty.textContent = emptyText;
+                container.appendChild(empty);
+                return;
+            }
+
+            const list = document.createElement('ul');
+            list.className = 'actions-list';
+
+            actions.forEach(action => {
+                const item = document.createElement('li');
+                item.textContent = formatActionLabel(action);
+                list.appendChild(item);
+            });
+
+            container.appendChild(list);
+        }
+
+        function normalizeToolModel(modelName, definition = {}) {
+            const defaultTransform = isPlainObject(definition.default_transform) ? definition.default_transform : {};
+
+            return {
+                ...definition,
+                name: modelName,
+                display_name: typeof definition.display_name === 'string' && definition.display_name.trim()
+                    ? definition.display_name.trim()
+                    : stripModelExtension(modelName),
+                description: typeof definition.description === 'string' ? definition.description : '',
+                type: typeof definition.type === 'string' && definition.type.trim() ? definition.type : 'object',
+                sub_type: typeof definition.sub_type === 'string' ? definition.sub_type : '',
+                toolbox_category: typeof definition.toolbox_category === 'string' && definition.toolbox_category.trim()
+                    ? definition.toolbox_category.trim()
+                    : getFallbackCategory(modelName),
+                thumbnail: typeof definition.thumbnail === 'string' ? definition.thumbnail : '',
+                default_transform: {
+                    position: normalizeVector3(defaultTransform.position, { x: 0, y: 0, z: 0 }),
+                    rotation: normalizeVector3(defaultTransform.rotation, { x: 0, y: 0, z: 0 }),
+                    scale: normalizeVector3(defaultTransform.scale, { x: 1, y: 1, z: 1 })
+                },
+                default_attributes: isPlainObject(definition.default_attributes)
+                    ? cloneData(definition.default_attributes)
+                    : {},
+                built_in_actions: Array.isArray(definition.built_in_actions)
+                    ? cloneData(definition.built_in_actions)
+                    : []
+            };
+        }
+
+        async function buildModelCatalog() {
+            const [modelData, response] = await Promise.all([
+                mapEngine.loadModelData(),
+                fetch('/list-models', {
+                    cache: 'no-store'
+                })
+            ]);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch models');
+            }
+
+            const listData = await response.json();
+            const catalog = new Map();
+
+            if (Array.isArray(modelData?.models)) {
+                modelData.models.forEach(model => {
+                    if (model?.name) {
+                        catalog.set(model.name, normalizeToolModel(model.name, model));
+                    }
+                });
+            }
+
+            (Array.isArray(listData?.models) ? listData.models : []).forEach(modelName => {
+                const existing = catalog.get(modelName) || {};
+                catalog.set(modelName, normalizeToolModel(modelName, existing));
+            });
+
+            return Array.from(catalog.values()).sort((a, b) => a.display_name.localeCompare(b.display_name));
+        }
+
+        function updateSelectedToolDetails(model) {
+            const details = document.getElementById('tool-selection-details');
+            details.innerHTML = '';
+
+            const title = document.createElement('div');
+            title.className = 'tool-category-title';
+            title.textContent = 'Selected Tool';
+            details.appendChild(title);
+
+            if (!model) {
+                const empty = document.createElement('p');
+                empty.className = 'no-attributes';
+                empty.textContent = 'Select a model to view its defaults and built-in actions.';
+                details.appendChild(empty);
+                return;
+            }
+
+            const name = document.createElement('div');
+            name.className = 'tool-item-name';
+            name.textContent = model.display_name;
+            details.appendChild(name);
+
+            const meta = document.createElement('div');
+            meta.className = 'tool-details-meta';
+            meta.textContent = `${model.toolbox_category} | ${model.type}${model.sub_type ? ` / ${model.sub_type}` : ''}`;
+            details.appendChild(meta);
+
+            if (model.description) {
+                const description = document.createElement('p');
+                description.className = 'tool-details-meta';
+                description.textContent = model.description;
+                details.appendChild(description);
+            }
+
+            const defaults = document.createElement('p');
+            defaults.className = 'tool-details-meta';
+            defaults.textContent = `Defaults: Pos (${model.default_transform.position.x}, ${model.default_transform.position.y}, ${model.default_transform.position.z}) | Rot (${model.default_transform.rotation.x}, ${model.default_transform.rotation.y}, ${model.default_transform.rotation.z}) | Scale (${model.default_transform.scale.x}, ${model.default_transform.scale.y}, ${model.default_transform.scale.z})`;
+            details.appendChild(defaults);
+
+            const actionsContainer = document.createElement('div');
+            renderActionsList(actionsContainer, model.built_in_actions, 'No built-in actions listed for this model.');
+            details.appendChild(actionsContainer);
+        }
+
+        function clearSelectedToolSelection() {
+            selectedToolModel = null;
+            document.querySelectorAll('.tool-item').forEach(item => item.classList.remove('selected'));
+            updateSelectedToolDetails(null);
+        }
+
+        function closeActiveToolMenu() {
+            if (activeToolMenu) {
+                activeToolMenu.classList.remove('visible');
+                activeToolMenu = null;
+            }
         }
 
         async function initToolbox() {
             const toolContainer = document.getElementById('tool-categories');
             toolContainer.innerHTML = '<h2>🛠️ Loading models...</h2>';
-            
+
             try {
-                const response = await fetch('/list-models');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch models');
-                }
-                const data = await response.json();
-                
-                // Clear the loading message
+                const models = await buildModelCatalog();
+                const selectedModelName = selectedToolModel?.name || null;
                 toolContainer.innerHTML = '';
-                
-                // Create a map of categories
-                const categories = {
-                    'Characters': data.models.filter(m => m.toLowerCase().includes('character')),
-                    'Structures': data.models.filter(m => m.toLowerCase().includes('structure') || m.toLowerCase().includes('container')),
-                    'Barriers': data.models.filter(m => m.toLowerCase().includes('barrier')),
-                    'Environment': data.models.filter(m => m.toLowerCase().includes('tree') || m.toLowerCase().includes('debris')),
-                    'Props': data.models.filter(m => 
-                        m.toLowerCase().includes('barrel') || 
-                        m.toLowerCase().includes('tank') || 
-                        m.toLowerCase().includes('crate')
-                    ),
-                    'Other': data.models.filter(m => 
-                        !m.toLowerCase().includes('character') &&
-                        !m.toLowerCase().includes('structure') &&
-                        !m.toLowerCase().includes('container') &&
-                        !m.toLowerCase().includes('barrier') &&
-                        !m.toLowerCase().includes('tree') &&
-                        !m.toLowerCase().includes('debris') &&
-                        !m.toLowerCase().includes('barrel') &&
-                        !m.toLowerCase().includes('tank') &&
-                        !m.toLowerCase().includes('crate')
-                    )
-                };
-                
-                // Create category sections
-                Object.entries(categories).forEach(([category, models]) => {
-                    if (models.length === 0) return; // Skip empty categories
-                    
+
+                const groupedModels = new Map();
+                models.forEach(model => {
+                    const category = model.toolbox_category || 'Other';
+                    if (!groupedModels.has(category)) {
+                        groupedModels.set(category, []);
+                    }
+                    groupedModels.get(category).push(model);
+                });
+
+                const orderedCategories = [
+                    ...DEFAULT_CATEGORIES.filter(category => groupedModels.has(category)),
+                    ...Array.from(groupedModels.keys())
+                        .filter(category => !DEFAULT_CATEGORIES.includes(category))
+                        .sort((a, b) => a.localeCompare(b))
+                ];
+
+                orderedCategories.forEach(category => {
                     const categoryDiv = document.createElement('div');
                     categoryDiv.className = 'tool-category';
-                    
+
                     const titleDiv = document.createElement('div');
                     titleDiv.className = 'tool-category-title';
                     titleDiv.textContent = category;
                     categoryDiv.appendChild(titleDiv);
-                    
-                    models.forEach(model => {
+
+                    groupedModels.get(category).forEach(model => {
                         const toolItem = document.createElement('div');
                         toolItem.className = 'tool-item';
-                        
-                        // Get the model name without extension
-                        const modelName = model.replace('.glb', '').replace('.gltf', '');
-                        
-                        // Convert model name to image name format (replace spaces with underscores)
-                        const imageName = modelName.replace(/ /g, '_');
-                        
-                        // Check if we have a custom image for this model
-                        const imageUrl = `/img/${imageName}.webp`;
-                        
-                        // Create an image element with error handling to fall back to default
+                        toolItem.dataset.modelName = model.name;
+                        const itemMain = document.createElement('div');
+                        itemMain.className = 'tool-item-main';
+
                         const img = document.createElement('img');
-                        img.alt = modelName;
-                        
-                        // Set default image first, then try to load custom image
-                        img.src = '/icons/model-icon.png'; // Default icon
-                        
-                        // Create a new Image object to check if custom image exists without logging errors
-                        const imageChecker = new Image();
-                        imageChecker.onload = function() {
-                            // If custom image loads successfully, use it
-                            img.src = imageUrl;
-                        };
-                        // No onerror handler needed - if it fails, we keep the default
-                        // No console.log needed - we silently fall back to default
-                        imageChecker.src = imageUrl;
-                        
-                        toolItem.innerHTML = `
-                            <span>${modelName}</span>
-                        `;
-                        toolItem.prepend(img); // Add the image as the first child
-                        
-                        toolItem.addEventListener('click', () => {
-                            document.querySelectorAll('.tool-item').forEach(item => {
-                                item.classList.remove('selected');
-                            });
-                            toolItem.classList.add('selected');
-                            selectedTool = model;
+                        img.alt = model.display_name;
+                        applyImageFallback(img, getImageCandidates(model));
+
+                        const textWrapper = document.createElement('div');
+                        textWrapper.className = 'tool-item-text';
+
+                        const name = document.createElement('span');
+                        name.className = 'tool-item-name';
+                        name.textContent = model.display_name;
+
+                        const meta = document.createElement('span');
+                        meta.className = 'tool-item-meta';
+                        meta.textContent = `${model.type}${model.sub_type ? ` / ${model.sub_type}` : ''}`;
+
+                        textWrapper.appendChild(name);
+                        textWrapper.appendChild(meta);
+                        itemMain.appendChild(img);
+                        itemMain.appendChild(textWrapper);
+                        toolItem.appendChild(itemMain);
+
+                        const menuWrapper = document.createElement('div');
+                        menuWrapper.className = 'tool-menu-wrapper';
+
+                        const menuButton = document.createElement('button');
+                        menuButton.type = 'button';
+                        menuButton.className = 'tool-menu-button';
+                        menuButton.textContent = '⋮';
+                        menuButton.setAttribute('aria-label', `Manage ${model.display_name}`);
+
+                        const menu = document.createElement('div');
+                        menu.className = 'tool-menu';
+
+                        const editButton = document.createElement('button');
+                        editButton.type = 'button';
+                        editButton.textContent = 'Edit';
+                        editButton.addEventListener('click', event => {
+                            event.stopPropagation();
+                            closeActiveToolMenu();
+                            openModelModal('edit', model);
                         });
-                        
+
+                        const deleteButton = document.createElement('button');
+                        deleteButton.type = 'button';
+                        deleteButton.textContent = 'Delete';
+                        deleteButton.addEventListener('click', async event => {
+                            event.stopPropagation();
+                            closeActiveToolMenu();
+                            await handleDeleteModel(model);
+                        });
+
+                        menu.appendChild(editButton);
+                        menu.appendChild(deleteButton);
+                        menuWrapper.appendChild(menuButton);
+                        menuWrapper.appendChild(menu);
+                        toolItem.appendChild(menuWrapper);
+
+                        menuButton.addEventListener('click', event => {
+                            event.stopPropagation();
+                            const shouldOpen = activeToolMenu !== menu;
+                            closeActiveToolMenu();
+                            if (shouldOpen) {
+                                menu.classList.add('visible');
+                                activeToolMenu = menu;
+                            }
+                        });
+
+                        toolItem.addEventListener('click', () => {
+                            closeActiveToolMenu();
+                            document.querySelectorAll('.tool-item').forEach(item => item.classList.remove('selected'));
+                            toolItem.classList.add('selected');
+                            selectedToolModel = model;
+                            updateSelectedToolDetails(model);
+                        });
+
+                        if (selectedModelName && selectedModelName === model.name) {
+                            toolItem.classList.add('selected');
+                            selectedToolModel = model;
+                        }
+
                         categoryDiv.appendChild(toolItem);
                     });
-                    
+
                     toolContainer.appendChild(categoryDiv);
                 });
+
+                updateSelectedToolDetails(selectedToolModel);
             } catch (error) {
                 console.error('Error loading models:', error);
                 toolContainer.innerHTML = '<h2>🛠️ Error loading models</h2>';
-                document.getElementById('status').textContent = 'Error loading models: ' + error.message;
-                document.getElementById('status').style.color = '#ff4444';
+                setStatus(`Error loading models: ${error.message}`, '#ff4444');
             }
+        }
+
+        function getImportBuiltInActions() {
+            const rawValue = document.getElementById('import-built-in-actions').value || '';
+            return rawValue
+                .split(/\r?\n/)
+                .map(action => action.trim())
+                .filter(Boolean);
+        }
+
+        function getModelModalElements() {
+            return {
+                backdrop: document.getElementById('model-modal-backdrop'),
+                form: document.getElementById('model-modal-form'),
+                title: document.getElementById('model-modal-title'),
+                mode: document.getElementById('model-modal-mode'),
+                originalName: document.getElementById('model-modal-original-name'),
+                fileHelper: document.getElementById('model-file-helper'),
+                replaceLabel: document.getElementById('replace-existing-label'),
+                submitButton: document.getElementById('submit-model-modal')
+            };
+        }
+
+        function resetModelForm() {
+            document.getElementById('model-modal-form').reset();
+            document.getElementById('model-modal-mode').value = 'add';
+            document.getElementById('model-modal-original-name').value = '';
+            document.getElementById('import-category').value = 'Other';
+            document.getElementById('import-type').value = 'object';
+            document.getElementById('import-subtype').value = 'decoration';
+            document.getElementById('default-pos-x').value = '0';
+            document.getElementById('default-pos-y').value = '0';
+            document.getElementById('default-pos-z').value = '0';
+            document.getElementById('default-rot-x').value = '0';
+            document.getElementById('default-rot-y').value = '0';
+            document.getElementById('default-rot-z').value = '0';
+            document.getElementById('default-scale-x').value = '1';
+            document.getElementById('default-scale-y').value = '1';
+            document.getElementById('default-scale-z').value = '1';
+            document.getElementById('import-default-settings').value = '{}';
+            document.getElementById('import-built-in-actions').value = '';
+        }
+
+        function openModelModal(mode, model = null) {
+            const elements = getModelModalElements();
+            resetModelForm();
+            elements.mode.value = mode;
+            elements.backdrop.classList.add('visible');
+
+            if (mode === 'edit' && model) {
+                elements.title.textContent = `Edit ${model.display_name}`;
+                elements.submitButton.textContent = 'Save Changes';
+                elements.originalName.value = model.name;
+                elements.fileHelper.textContent = `Editing "${model.name}". Leave the model file empty to keep the existing file.`;
+                elements.replaceLabel.textContent = 'Allow replacing the existing files if you upload new ones';
+                document.getElementById('import-display-name').value = model.display_name || '';
+                document.getElementById('import-category').value = model.toolbox_category || 'Other';
+                document.getElementById('import-type').value = model.type || 'object';
+                document.getElementById('import-subtype').value = model.sub_type || 'decoration';
+                document.getElementById('import-description').value = model.description || '';
+                document.getElementById('default-pos-x').value = model.default_transform?.position?.x ?? 0;
+                document.getElementById('default-pos-y').value = model.default_transform?.position?.y ?? 0;
+                document.getElementById('default-pos-z').value = model.default_transform?.position?.z ?? 0;
+                document.getElementById('default-rot-x').value = model.default_transform?.rotation?.x ?? 0;
+                document.getElementById('default-rot-y').value = model.default_transform?.rotation?.y ?? 0;
+                document.getElementById('default-rot-z').value = model.default_transform?.rotation?.z ?? 0;
+                document.getElementById('default-scale-x').value = model.default_transform?.scale?.x ?? 1;
+                document.getElementById('default-scale-y').value = model.default_transform?.scale?.y ?? 1;
+                document.getElementById('default-scale-z').value = model.default_transform?.scale?.z ?? 1;
+                document.getElementById('import-built-in-actions').value = (model.built_in_actions || []).map(formatActionLabel).join('\n');
+                document.getElementById('import-default-settings').value = JSON.stringify(model.default_attributes || {}, null, 2);
+            } else {
+                elements.title.textContent = 'Add Model';
+                elements.submitButton.textContent = 'Import Model';
+                elements.fileHelper.textContent = 'Required when adding a new model. Leave empty while editing to keep the existing file.';
+                elements.replaceLabel.textContent = 'Replace existing model metadata/files if the names already exist';
+            }
+        }
+
+        function closeModelModal() {
+            getModelModalElements().backdrop.classList.remove('visible');
+            resetModelForm();
+        }
+
+        function setupConfirmationModal() {
+            const backdrop = document.getElementById('confirm-modal-backdrop');
+            const cancelButtons = [
+                document.getElementById('close-confirm-modal'),
+                document.getElementById('confirm-modal-cancel')
+            ];
+            const confirmButton = document.getElementById('confirm-modal-confirm');
+
+            const resolveDialog = result => {
+                if (confirmDialogResolver) {
+                    confirmDialogResolver(result);
+                    confirmDialogResolver = null;
+                }
+                backdrop.classList.remove('visible');
+            };
+
+            cancelButtons.forEach(button => {
+                button.addEventListener('click', () => resolveDialog(false));
+            });
+
+            backdrop.addEventListener('click', event => {
+                if (event.target === backdrop) {
+                    resolveDialog(false);
+                }
+            });
+
+            confirmButton.addEventListener('click', () => resolveDialog(true));
+        }
+
+        function openConfirmDialog({ title, message, confirmLabel = 'Confirm' }) {
+            document.getElementById('confirm-modal-title').textContent = title;
+            document.getElementById('confirm-modal-message').textContent = message;
+            document.getElementById('confirm-modal-confirm').textContent = confirmLabel;
+            document.getElementById('confirm-modal-backdrop').classList.add('visible');
+
+            return new Promise(resolve => {
+                confirmDialogResolver = resolve;
+            });
+        }
+
+        async function handleDeleteModel(model) {
+            const confirmed = await openConfirmDialog({
+                title: 'Delete Model',
+                message: `Delete "${model.display_name}" from the toolbox? This removes the model file and its metadata.`,
+                confirmLabel: 'Delete Model'
+            });
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                setStatus(`Deleting "${model.display_name}"...`);
+                const response = await fetch(`/model-data/${encodeURIComponent(model.name)}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    throw new Error(result.details || result.error || 'Failed to delete model.');
+                }
+
+                if (selectedToolModel?.name === model.name) {
+                    clearSelectedToolSelection();
+                }
+
+                await mapEngine.loadModelData();
+                await initToolbox();
+                setStatus(result.message || 'Model deleted successfully.', '#4CAF50');
+                resetStatus();
+            } catch (error) {
+                console.error('Error deleting model:', error);
+                setStatus(`Error deleting model: ${error.message}`, '#ff4444');
+            }
+        }
+
+        function setupModelModal() {
+            const elements = getModelModalElements();
+            const addButton = document.getElementById('open-add-model-modal');
+            const closeButtons = [
+                document.getElementById('close-model-modal'),
+                document.getElementById('cancel-model-modal')
+            ];
+
+            addButton.addEventListener('click', () => openModelModal('add'));
+            closeButtons.forEach(button => button.addEventListener('click', closeModelModal));
+            elements.backdrop.addEventListener('click', event => {
+                if (event.target === elements.backdrop) {
+                    closeModelModal();
+                }
+            });
+
+            elements.form.addEventListener('submit', async event => {
+                event.preventDefault();
+
+                const mode = elements.mode.value;
+                const modelFile = document.getElementById('import-model-file').files[0];
+                const thumbnailFile = document.getElementById('import-thumbnail-file').files[0];
+
+                if (mode === 'add' && !modelFile) {
+                    setStatus('Choose a model file to import.', '#ff4444');
+                    return;
+                }
+
+                let defaultSettings = {};
+                try {
+                    defaultSettings = JSON.parse(document.getElementById('import-default-settings').value || '{}');
+                } catch (error) {
+                    setStatus(`Default settings JSON is invalid: ${error.message}`, '#ff4444');
+                    return;
+                }
+
+                if (!isPlainObject(defaultSettings)) {
+                    setStatus('Default settings JSON must be an object.', '#ff4444');
+                    return;
+                }
+
+                const formData = new FormData();
+                if (modelFile) {
+                    formData.append('modelFile', modelFile);
+                }
+
+                if (thumbnailFile) {
+                    formData.append('thumbnailFile', thumbnailFile);
+                }
+
+                const fallbackName = mode === 'edit'
+                    ? stripModelExtension(elements.originalName.value)
+                    : stripModelExtension(modelFile.name);
+                const derivedDisplayName = fallbackName;
+                formData.append('displayName', document.getElementById('import-display-name').value.trim() || derivedDisplayName);
+                formData.append('category', document.getElementById('import-category').value.trim() || 'Other');
+                formData.append('type', document.getElementById('import-type').value.trim() || 'object');
+                formData.append('subType', document.getElementById('import-subtype').value.trim() || 'decoration');
+                formData.append('description', document.getElementById('import-description').value.trim());
+                formData.append('defaultPosition', JSON.stringify({
+                    x: Number(document.getElementById('default-pos-x').value || 0),
+                    y: Number(document.getElementById('default-pos-y').value || 0),
+                    z: Number(document.getElementById('default-pos-z').value || 0)
+                }));
+                formData.append('defaultRotation', JSON.stringify({
+                    x: Number(document.getElementById('default-rot-x').value || 0),
+                    y: Number(document.getElementById('default-rot-y').value || 0),
+                    z: Number(document.getElementById('default-rot-z').value || 0)
+                }));
+                formData.append('defaultScale', JSON.stringify({
+                    x: Number(document.getElementById('default-scale-x').value || 1),
+                    y: Number(document.getElementById('default-scale-y').value || 1),
+                    z: Number(document.getElementById('default-scale-z').value || 1)
+                }));
+                formData.append('defaultAttributes', JSON.stringify(defaultSettings));
+                formData.append('builtInActions', JSON.stringify(getImportBuiltInActions()));
+                formData.append('replaceExisting', document.getElementById('import-replace-existing').checked ? 'true' : 'false');
+
+                try {
+                    const requestUrl = mode === 'edit'
+                        ? `/model-data/${encodeURIComponent(elements.originalName.value)}`
+                        : '/import-model';
+                    const requestMethod = mode === 'edit' ? 'PUT' : 'POST';
+                    const statusLabel = mode === 'edit'
+                        ? `Saving "${derivedDisplayName}"...`
+                        : `Importing "${modelFile.name}"...`;
+                    setStatus(statusLabel, 'white');
+
+                    const response = await fetch(requestUrl, {
+                        method: requestMethod,
+                        body: formData
+                    });
+
+                    const result = await response.json().catch(() => ({}));
+
+                    if (!response.ok) {
+                        throw new Error(result.details || result.error || `Failed to ${mode === 'edit' ? 'update' : 'import'} model.`);
+                    }
+
+                    selectedToolModel = result.model ? normalizeToolModel(result.model.name, result.model) : null;
+                    await mapEngine.loadModelData();
+                    await initToolbox();
+                    closeModelModal();
+                    setStatus(result.message || `Model ${mode === 'edit' ? 'updated' : 'imported'} successfully!`, '#4CAF50');
+                    resetStatus();
+                } catch (error) {
+                    console.error(`Error ${mode === 'edit' ? 'updating' : 'importing'} model:`, error);
+                    setStatus(`Error ${mode === 'edit' ? 'updating' : 'importing'} model: ${error.message}`, '#ff4444');
+                }
+            });
+        }
+
+        function getSelectedObjectMapEntry() {
+            if (!selectedObject || !mapEngine?.mapData?.objects) {
+                return null;
+            }
+
+            return mapEngine.mapData.objects.find(obj => obj.id === selectedObject.id) || null;
+        }
+
+        function getSelectedObjectModelInfo() {
+            if (!selectedObject?.metadata) {
+                return null;
+            }
+
+            const modelName = selectedObject.metadata.modelName || getSelectedObjectMapEntry()?.model;
+            return mapEngine.getModelDefinition(modelName) || selectedObject.metadata.modelDefinition || null;
+        }
+
+        function getEditableModelDefaults(modelInfo) {
+            if (!isPlainObject(modelInfo)) {
+                return {};
+            }
+
+            const editable = isPlainObject(modelInfo.default_attributes)
+                ? cloneData(modelInfo.default_attributes)
+                : {};
+
+            const skippedKeys = new Set([
+                'name',
+                'display_name',
+                'id',
+                'type',
+                'sub_type',
+                'description',
+                'models',
+                'thumbnail',
+                'toolbox_category',
+                'default_transform',
+                'default_attributes',
+                'built_in_actions'
+            ]);
+
+            Object.entries(modelInfo).forEach(([key, value]) => {
+                if (skippedKeys.has(key)) {
+                    return;
+                }
+
+                editable[key] = cloneData(value);
+            });
+
+            return editable;
+        }
+
+        function updateBuiltInActionsPanel() {
+            const container = document.getElementById('built-in-actions');
+            const modelInfo = getSelectedObjectModelInfo();
+            const actions = modelInfo?.built_in_actions || selectedObject?.metadata?.builtInActions || [];
+            renderActionsList(container, actions, 'No actions listed for this model.');
         }
 
         function updateSelectionInfo() {
             const infoPanel = document.getElementById('selection-info');
-            if (selectedObject) {
-                document.getElementById('selected-id').textContent = selectedObject.id;
-                
-                // Update position inputs
-                document.getElementById('pos-x').value = selectedObject.position.x.toFixed(2);
-                document.getElementById('pos-y').value = selectedObject.position.y.toFixed(2);
-                document.getElementById('pos-z').value = selectedObject.position.z.toFixed(2);
-                
-                // Update rotation inputs (convert to degrees)
-                document.getElementById('rot-x').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.x).toFixed(1);
-                document.getElementById('rot-y').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.y).toFixed(1);
-                document.getElementById('rot-z').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.z).toFixed(1);
-                
-                // Display attributes
-                displayModelAttributes();
-                
-                infoPanel.style.display = 'block';
-            } else {
+
+            if (!selectedObject) {
                 infoPanel.style.display = 'none';
+                return;
             }
+
+            document.getElementById('selected-id').textContent = selectedObject.id;
+            document.getElementById('pos-x').value = selectedObject.position.x.toFixed(2);
+            document.getElementById('pos-y').value = selectedObject.position.y.toFixed(2);
+            document.getElementById('pos-z').value = selectedObject.position.z.toFixed(2);
+            document.getElementById('rot-x').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.x).toFixed(1);
+            document.getElementById('rot-y').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.y).toFixed(1);
+            document.getElementById('rot-z').value = BABYLON.Tools.ToDegrees(selectedObject.rotation.z).toFixed(1);
+            updateBuiltInActionsPanel();
+            displayModelAttributes();
+            infoPanel.style.display = 'block';
         }
 
-        // Function to display model attributes
-        async function displayModelAttributes() {
+        function displayModelAttributes() {
             const attributesContainer = document.getElementById('attributes-container');
             attributesContainer.innerHTML = '';
-            
+
             if (!selectedObject || !selectedObject.metadata) {
                 attributesContainer.innerHTML = '<p>No model selected. Select a model to view attributes.</p>';
                 return;
             }
-            
-            try {
-                // Find the object in map_data.json
-                const mapObject = mapEngine.mapData.objects.find(obj => obj.id === selectedObject.id);
-                console.log('Map object found:', mapObject);
-                
-                // If no attributes yet, fetch them for character enemies
-                if (selectedObject.name && (
-                    selectedObject.name.includes('Character_Enemy') || 
-                    selectedObject.name.includes('Character_Hazmat') || 
-                    selectedObject.name.includes('Character_Soldier')
-                )) {
-                    // Get the model name from the object name
-                    // Character models in map have format Character_Type_InstanceId but in model_data.json they're Character_Type.glb
-                    let modelName = selectedObject.name;
-                    
-                    // For characters, extract the base name (first two parts) and add .glb
-                    if (modelName.includes('Character_')) {
-                        const parts = modelName.split('_');
-                        if (parts.length >= 2) {
-                            modelName = `${parts[0]}_${parts[1]}.glb`;
-                            console.log('Looking for model with name:', modelName);
-                        }
-                    }
-                    
-                    // Find the model in modelData
-                    if (!mapEngine.modelData || !mapEngine.modelData.models) {
-                        console.error('Model data not loaded yet!');
-                        await mapEngine.loadModelData();
-                    }
-                    
-                    const modelInfo = mapEngine.modelData.models.find(model => model.name === modelName);
-                    console.log('Found model info:', modelInfo);
-                    
-                    if (modelInfo) {
-                        // Initialize metadata.attributes if needed
-                        if (!selectedObject.metadata.attributes) {
-                            selectedObject.metadata.attributes = {};
-                        }
-                        
-                        // Start with model data attributes
-                        const modelAttributes = { ...modelInfo };
-                        
-                        // If there are map-specific attributes in map_data.json, they have priority
-                        if (mapObject && mapObject.attributes) {
-                            // Convert attributes array to object if needed
-                            let mapAttributes = mapObject.attributes;
-                            if (Array.isArray(mapAttributes) && mapAttributes.length === 0) {
-                                mapAttributes = {}; // Convert empty array to empty object
-                                // Update the map data
-                                mapObject.attributes = {};
-                            }
-                            
-                            // Merge model attributes with map attributes (map has priority)
-                            selectedObject.metadata.attributes = { ...modelAttributes, ...mapAttributes };
-                        } else {
-                            // No map attributes, just use model attributes
-                            selectedObject.metadata.attributes = modelAttributes;
-                            
-                            // Initialize attributes in mapObject if it exists
-                            if (mapObject) {
-                                mapObject.attributes = {};
-                            }
-                        }
-                    } else {
-                        console.error('Could not find model info for:', modelName);
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading/merging attributes:', error);
-            }
-            
-            const attributes = selectedObject.metadata.attributes || {};
-            console.log('Final attributes to display:', attributes);
-            
-            // Create a title for the attributes section
+
+            const mapObject = getSelectedObjectMapEntry();
+            const modelInfo = getSelectedObjectModelInfo();
+            const defaultAttributes = getEditableModelDefaults(modelInfo);
+            const mergedAttributes = deepMerge(
+                deepMerge(defaultAttributes, selectedObject.metadata.attributes || {}),
+                isPlainObject(mapObject?.attributes) ? mapObject.attributes : {}
+            );
+
+            selectedObject.metadata.attributes = mergedAttributes;
+
             const title = document.createElement('h3');
             title.textContent = `Attributes for ${selectedObject.name}`;
             attributesContainer.appendChild(title);
-            
-            // Create a section for each attribute
-            const createAttributeInputs = (attributes, parentKey = '') => {
+
+            const skippedKeys = new Set([
+                'name',
+                'display_name',
+                'id',
+                'type',
+                'sub_type',
+                'description',
+                'models',
+                'thumbnail',
+                'toolbox_category',
+                'default_transform',
+                'default_attributes',
+                'built_in_actions'
+            ]);
+
+            const createAttributeInputs = (attributes, parentKey = '', parentElement = attributesContainer) => {
                 let attributeCount = 0;
-                
-                for (const key in attributes) {
-                    // Skip non-editable properties
-                    if (['name', 'id', 'type', 'sub_type', 'description', 'models'].includes(key)) continue;
-                    
-                    const attributeValue = attributes[key];
+
+                Object.entries(attributes).forEach(([key, attributeValue]) => {
+                    if (skippedKeys.has(key)) {
+                        return;
+                    }
+
                     const fullKey = parentKey ? `${parentKey}.${key}` : key;
-                    
-                    // Check if this is a nested object
-                    if (attributeValue !== null && typeof attributeValue === 'object' && !Array.isArray(attributeValue)) {
-                        // Create a fieldset for the nested object
+
+                    if (isPlainObject(attributeValue)) {
                         const fieldset = document.createElement('fieldset');
                         fieldset.className = 'attribute-group';
-                        
+
                         const legend = document.createElement('legend');
                         legend.textContent = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
                         fieldset.appendChild(legend);
-                        
-                        // Recursively create inputs for nested attributes
-                        const nestedCount = createAttributeInputs(attributeValue, key);
-                        attributeCount += nestedCount;
-                        
+
+                        const nestedCount = createAttributeInputs(attributeValue, fullKey, fieldset);
                         if (nestedCount > 0) {
-                            attributesContainer.appendChild(fieldset);
+                            parentElement.appendChild(fieldset);
+                            attributeCount += nestedCount;
                         }
-                        continue;
+                        return;
                     }
-                    
-                    // Create a container for this attribute
+
                     const attributeDiv = document.createElement('div');
                     attributeDiv.className = 'attribute-item';
-                    
-                    // Create label
+
                     const label = document.createElement('label');
                     label.textContent = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
                     label.setAttribute('for', `attribute-${fullKey}`);
-                    
-                    // Create input based on attribute type
+
                     let input;
-                    
                     if (typeof attributeValue === 'boolean') {
-                        // Checkbox for boolean values
                         input = document.createElement('input');
                         input.type = 'checkbox';
                         input.checked = attributeValue;
                     } else if (typeof attributeValue === 'number') {
-                        // Number input for numeric values
                         input = document.createElement('input');
                         input.type = 'number';
                         input.value = attributeValue;
-                        input.step = 'any'; // Allows decimal values
+                        input.step = 'any';
                     } else {
-                        // Text input for everything else
                         input = document.createElement('input');
                         input.type = 'text';
-                        input.value = attributeValue || '';
+                        input.value = Array.isArray(attributeValue)
+                            ? JSON.stringify(attributeValue)
+                            : (attributeValue ?? '');
+                        if (Array.isArray(attributeValue)) {
+                            input.dataset.valueType = 'json';
+                        }
                     }
-                    
-                    // Set common attributes
+
                     input.id = `attribute-${fullKey}`;
                     input.className = 'attribute-value';
                     input.dataset.attributeName = fullKey;
-                    
-                    // Add to container
+
                     attributeDiv.appendChild(label);
                     attributeDiv.appendChild(input);
-                    attributesContainer.appendChild(attributeDiv);
-                    attributeCount++;
-                }
-                
+                    parentElement.appendChild(attributeDiv);
+                    attributeCount += 1;
+                });
+
                 return attributeCount;
             };
-            
-            // Generate all attribute inputs
-            const totalAttributes = createAttributeInputs(attributes);
-            
-            // Add save button if there are attributes
+
+            const totalAttributes = createAttributeInputs(mergedAttributes);
+
             if (totalAttributes > 0) {
                 const saveButton = document.createElement('button');
                 saveButton.textContent = 'Save Attributes';
-                saveButton.className = 'btn save-attributes';
                 saveButton.id = 'save-attributes';
                 saveButton.onclick = saveModelAttributes;
                 attributesContainer.appendChild(saveButton);
             } else {
-                // Fix: Moved outside the if block to only show when no attributes exist
-                attributesContainer.innerHTML += '<p>No editable attributes found for this model.</p>';
+                const empty = document.createElement('p');
+                empty.className = 'no-attributes';
+                empty.textContent = 'No editable attributes found for this model.';
+                attributesContainer.appendChild(empty);
             }
         }
-        
-        // Function to save updated attributes
+
         function saveModelAttributes() {
             if (!selectedObject || !selectedObject.metadata) return;
-            
-            const attributes = { ...selectedObject.metadata.attributes } || {};
+
+            const attributes = cloneData(selectedObject.metadata.attributes) || {};
             const inputs = document.querySelectorAll('#attributes-container .attribute-value');
-            
-            inputs.forEach(input => {
-                const name = input.dataset.attributeName;
-                let value;
-                
-                if (input.type === 'checkbox') {
-                    value = input.checked;
-                } else if (input.type === 'number') {
-                    value = parseFloat(input.value);
-                } else {
-                    value = input.value;
-                }
-                
-                // Handle nested attributes with dot notation (e.g., "head_hitbox.width")
-                if (name.includes('.')) {
-                    const parts = name.split('.');
-                    let current = attributes;
-                    
-                    // Navigate to the correct nested object
-                    for (let i = 0; i < parts.length - 1; i++) {
-                        if (!current[parts[i]] || typeof current[parts[i]] !== 'object') {
-                            current[parts[i]] = {};
-                        }
-                        current = current[parts[i]];
+
+            try {
+                inputs.forEach(input => {
+                    const name = input.dataset.attributeName;
+                    let value;
+
+                    if (input.type === 'checkbox') {
+                        value = input.checked;
+                    } else if (input.type === 'number') {
+                        value = parseFloat(input.value);
+                    } else if (input.dataset.valueType === 'json') {
+                        value = JSON.parse(input.value || '[]');
+                    } else {
+                        value = input.value;
                     }
-                    
-                    // Set the value in the deepest object
-                    current[parts[parts.length - 1]] = value;
-                } else {
-                    attributes[name] = value;
-                }
-            });
-            
-            // Update the object's metadata
+
+                    if (name.includes('.')) {
+                        const parts = name.split('.');
+                        let current = attributes;
+
+                        for (let index = 0; index < parts.length - 1; index += 1) {
+                            if (!isPlainObject(current[parts[index]])) {
+                                current[parts[index]] = {};
+                            }
+                            current = current[parts[index]];
+                        }
+
+                        current[parts[parts.length - 1]] = value;
+                    } else {
+                        attributes[name] = value;
+                    }
+                });
+            } catch (error) {
+                setStatus(`Error saving attributes: ${error.message}`, '#ff4444');
+                return;
+            }
+
             selectedObject.metadata.attributes = attributes;
-            
-            // Update in mapData
-            if (mapEngine.mapData && mapEngine.mapData.objects) {
+
+            if (mapEngine.mapData?.objects) {
                 const objectIndex = mapEngine.mapData.objects.findIndex(obj => obj.id === selectedObject.id);
                 if (objectIndex !== -1) {
-                    // Ensure attributes is an object, not an array
                     if (Array.isArray(mapEngine.mapData.objects[objectIndex].attributes)) {
                         mapEngine.mapData.objects[objectIndex].attributes = {};
                     }
-                    
-                    // Save attributes to map data
-                    mapEngine.mapData.objects[objectIndex].attributes = { ...attributes };
-                    console.log('Updated attributes in map data:', mapEngine.mapData.objects[objectIndex].attributes);
+
+                    mapEngine.mapData.objects[objectIndex].attributes = cloneData(attributes);
                 }
             }
-            
-            console.log('Updated attributes for object', selectedObject.id, attributes);
-            
-            // Show confirmation
-            const status = document.getElementById('status');
-            status.textContent = 'Attributes updated successfully!';
-            status.style.color = '#4CAF50';
-            
-            // Clear status after a delay
-            setTimeout(() => {
-                status.textContent = 'Ready';
-                status.style.color = 'white';
-            }, 3000);
+
+            setStatus('Attributes updated successfully!', '#4CAF50');
+            resetStatus();
         }
 
-        function handleKeyboardInput(event) {
-            if (selectedObject) {
-                // Handle Delete key
-                if (event.key === 'Delete') {
-                    if (confirm(`Are you sure you want to delete object "${selectedObject.id}"?`)) {
-                        console.log('Deleting object:', selectedObject.id);
-                        mapEngine.removeObject(selectedObject.id);
-                        selectedObject = null;
-                        updateSelectionInfo();
-                        camera.attachControl(canvas, true);
-                    }
-                    return;
-                }
-
-                // Prevent default behavior to stop camera movement
-                event.preventDefault();
-
-                const moveStep = event.ctrlKey ? 0.1 : 1; // Smaller step when CTRL is pressed
-                const rotateStep = event.ctrlKey ? Math.PI / 32 : Math.PI / 8; // Finer rotation when CTRL is pressed
-                let positionChanged = false;
-                let rotationChanged = false;
-
-                if (event.shiftKey) {
-                    isShiftPressed = true;
-                    if (event.key === 'ArrowLeft') {
-                        selectedObject.rotation.y += rotateStep;
-                        rotationChanged = true;
-                    } else if (event.key === 'ArrowRight') {
-                        selectedObject.rotation.y -= rotateStep;
-                        rotationChanged = true;
-                    } else if (event.key === 'ArrowUp') {
-                        selectedObject.position.y += moveStep;
-                        positionChanged = true;
-                    } else if (event.key === 'ArrowDown') {
-                        selectedObject.position.y -= moveStep;
-                        positionChanged = true;
-                    }
-                } else {
-                    switch(event.key) {
-                        case 'ArrowLeft':
-                            selectedObject.position.x -= moveStep;
-                            positionChanged = true;
-                            break;
-                        case 'ArrowRight':
-                            selectedObject.position.x += moveStep;
-                            positionChanged = true;
-                            break;
-                        case 'ArrowUp':
-                            selectedObject.position.z -= moveStep;
-                            positionChanged = true;
-                            break;
-                        case 'ArrowDown':
-                            selectedObject.position.z += moveStep;
-                            positionChanged = true;
-                            break;
-                    }
-                }
-
-                // Only update if position or rotation changed
-                if (positionChanged || rotationChanged) {
-                    // Find and update the object in mapData
-                    if (mapEngine.mapData && mapEngine.mapData.objects) {
-                        const objectIndex = mapEngine.mapData.objects.findIndex(obj => obj.id === selectedObject.id);
-                        if (objectIndex !== -1) {
-                            console.log('Before update - Object data:', JSON.stringify(mapEngine.mapData.objects[objectIndex], null, 2));
-                            
-                            // Update the object data
-                            mapEngine.mapData.objects[objectIndex] = {
-                                ...mapEngine.mapData.objects[objectIndex],
-                                position: {
-                                    x: selectedObject.position.x,
-                                    y: selectedObject.position.y,
-                                    z: selectedObject.position.z
-                                },
-                                rotation: {
-                                    x: BABYLON.Tools.ToDegrees(selectedObject.rotation.x),
-                                    y: BABYLON.Tools.ToDegrees(selectedObject.rotation.y),
-                                    z: BABYLON.Tools.ToDegrees(selectedObject.rotation.z)
-                                }
-                            };
-
-                            console.log('After update - Object data:', JSON.stringify(mapEngine.mapData.objects[objectIndex], null, 2));
-                            console.log('Full map data objects array:', JSON.stringify(mapEngine.mapData.objects, null, 2));
-                        } else {
-                            console.warn('Object not found in mapData:', selectedObject.id);
-                        }
-                    }
-                }
-
-                updateSelectionInfo();
-            }
-        }
-
-        function setupSelectionControls() {
-            const infoPanel = document.getElementById('selection-info');
-            const minimizeBtn = infoPanel.querySelector('.minimize-btn');
-            const infoContent = infoPanel.querySelector('.info-content');
-            
-            // Minimize/Maximize functionality
-            minimizeBtn.addEventListener('click', () => {
-                infoContent.classList.toggle('minimized');
-                minimizeBtn.textContent = infoContent.classList.contains('minimized') ? '▲' : '▼';
-            });
-            
-            // Position input handlers
-            ['x', 'y', 'z'].forEach(axis => {
-                const input = document.getElementById(`pos-${axis}`);
-                input.addEventListener('change', () => {
-                    if (selectedObject) {
-                        selectedObject.position[axis] = parseFloat(input.value);
-                        updateMapData();
-                    }
-                });
-            });
-            
-            // Rotation input handlers
-            ['x', 'y', 'z'].forEach(axis => {
-                const input = document.getElementById(`rot-${axis}`);
-                input.addEventListener('change', () => {
-                    if (selectedObject) {
-                        selectedObject.rotation[axis] = BABYLON.Tools.ToRadians(parseFloat(input.value));
-                        updateMapData();
-                    }
-                });
-            });
-        }
-        
         function updateMapData() {
-            if (selectedObject && mapEngine.mapData && mapEngine.mapData.objects) {
+            if (selectedObject && mapEngine.mapData?.objects) {
                 const objectIndex = mapEngine.mapData.objects.findIndex(obj => obj.id === selectedObject.id);
                 if (objectIndex !== -1) {
                     mapEngine.mapData.objects[objectIndex] = {
@@ -1022,20 +1842,115 @@
             }
         }
 
+        function handleKeyboardInput(event) {
+            const focusedTag = document.activeElement?.tagName;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(focusedTag)) {
+                return;
+            }
+
+            if (!selectedObject) return;
+
+            if (event.key === 'Delete') {
+                if (confirm(`Are you sure you want to delete object "${selectedObject.id}"?`)) {
+                    mapEngine.removeObject(selectedObject.id);
+                    selectedObject = null;
+                    updateSelectionInfo();
+                    camera.attachControl(canvas, true);
+                }
+                return;
+            }
+
+            event.preventDefault();
+
+            const moveStep = event.ctrlKey ? 0.1 : 1;
+            const rotateStep = event.ctrlKey ? Math.PI / 32 : Math.PI / 8;
+            let positionChanged = false;
+            let rotationChanged = false;
+
+            if (event.shiftKey) {
+                isShiftPressed = true;
+                if (event.key === 'ArrowLeft') {
+                    selectedObject.rotation.y += rotateStep;
+                    rotationChanged = true;
+                } else if (event.key === 'ArrowRight') {
+                    selectedObject.rotation.y -= rotateStep;
+                    rotationChanged = true;
+                } else if (event.key === 'ArrowUp') {
+                    selectedObject.position.y += moveStep;
+                    positionChanged = true;
+                } else if (event.key === 'ArrowDown') {
+                    selectedObject.position.y -= moveStep;
+                    positionChanged = true;
+                }
+            } else {
+                switch (event.key) {
+                    case 'ArrowLeft':
+                        selectedObject.position.x -= moveStep;
+                        positionChanged = true;
+                        break;
+                    case 'ArrowRight':
+                        selectedObject.position.x += moveStep;
+                        positionChanged = true;
+                        break;
+                    case 'ArrowUp':
+                        selectedObject.position.z -= moveStep;
+                        positionChanged = true;
+                        break;
+                    case 'ArrowDown':
+                        selectedObject.position.z += moveStep;
+                        positionChanged = true;
+                        break;
+                }
+            }
+
+            if (positionChanged || rotationChanged) {
+                updateMapData();
+                updateSelectionInfo();
+            }
+        }
+
+        function setupSelectionControls() {
+            const infoPanel = document.getElementById('selection-info');
+            const minimizeBtn = infoPanel.querySelector('.minimize-btn');
+            const infoContent = infoPanel.querySelector('.info-content');
+
+            minimizeBtn.addEventListener('click', () => {
+                infoContent.classList.toggle('minimized');
+                minimizeBtn.textContent = infoContent.classList.contains('minimized') ? '▲' : '▼';
+            });
+
+            ['x', 'y', 'z'].forEach(axis => {
+                document.getElementById(`pos-${axis}`).addEventListener('change', () => {
+                    if (!selectedObject) return;
+
+                    selectedObject.position[axis] = parseFloat(document.getElementById(`pos-${axis}`).value);
+                    updateMapData();
+                });
+            });
+
+            ['x', 'y', 'z'].forEach(axis => {
+                document.getElementById(`rot-${axis}`).addEventListener('change', () => {
+                    if (!selectedObject) return;
+
+                    selectedObject.rotation[axis] = BABYLON.Tools.ToRadians(parseFloat(document.getElementById(`rot-${axis}`).value));
+                    updateMapData();
+                });
+            });
+        }
+
         function setupToolboxControls() {
             const menuButton = document.getElementById('menu-button');
             const toolbox = document.getElementById('toolbox');
             const minimizeBtn = toolbox.querySelector('.minimize-btn');
-            
+
             menuButton.addEventListener('click', () => {
                 toolbox.classList.add('visible');
                 menuButton.classList.add('hidden');
             });
-            
+
             minimizeBtn.addEventListener('click', () => {
                 toolbox.classList.remove('visible');
-                // Wait for toolbox animation to complete before showing menu button
-                setTimeout(() => {
+                window.setTimeout(() => {
                     menuButton.classList.remove('hidden');
                 }, 300);
             });
@@ -1045,25 +1960,53 @@
             const mapButton = document.getElementById('map-button');
             const controls = document.getElementById('controls');
             const minimizeBtn = controls.querySelector('.minimize-btn');
-            
+
             mapButton.addEventListener('click', () => {
                 controls.classList.add('visible');
                 mapButton.classList.add('hidden');
             });
-            
+
             minimizeBtn.addEventListener('click', () => {
                 controls.classList.remove('visible');
-                // Wait for controls animation to complete before showing map button
-                setTimeout(() => {
+                window.setTimeout(() => {
                     mapButton.classList.remove('hidden');
                 }, 300);
             });
         }
 
+        function buildPlacedObjectData(worldPos) {
+            const defaults = selectedToolModel?.default_transform || {};
+            const defaultPosition = normalizeVector3(defaults.position, { x: 0, y: 0, z: 0 });
+            const defaultRotation = normalizeVector3(defaults.rotation, { x: 0, y: 0, z: 0 });
+            const defaultScale = normalizeVector3(defaults.scale, { x: 1, y: 1, z: 1 });
+
+            const objectData = {
+                id: `${stripModelExtension(selectedToolModel.name)}_${generateUUID()}`,
+                model: selectedToolModel.name,
+                position: {
+                    x: worldPos.x + defaultPosition.x,
+                    y: defaultPosition.y,
+                    z: worldPos.z + defaultPosition.z
+                },
+                rotation: defaultRotation,
+                scale: defaultScale,
+                attributes: cloneData(selectedToolModel.default_attributes) || {}
+            };
+
+            if (selectedToolModel.type) {
+                objectData.type = selectedToolModel.type;
+            }
+
+            if (selectedToolModel.sub_type) {
+                objectData.sub_type = selectedToolModel.sub_type;
+            }
+
+            return objectData;
+        }
+
         const createScene = () => {
             scene = new BABYLON.Scene(engine);
-            
-            // Camera setup
+
             camera = new BABYLON.ArcRotateCamera(
                 'camera',
                 BABYLON.Tools.ToRadians(45),
@@ -1076,65 +2019,53 @@
             camera.lowerRadiusLimit = 5;
             camera.upperRadiusLimit = 100;
             camera.setTarget(BABYLON.Vector3.Zero());
-            
-            // Add some ambient light
+
             const ambientLight = new BABYLON.HemisphericLight(
                 'ambientLight',
                 new BABYLON.Vector3(0, 1, 0),
                 scene
             );
             ambientLight.intensity = 1;
-            
-            // Add directional light for shadows
+
             const dirLight = new BABYLON.DirectionalLight(
                 'dirLight',
                 new BABYLON.Vector3(-1, -2, -1),
                 scene
             );
             dirLight.intensity = 0.5;
-            
-            // Ground setup with picking
+
             ground = BABYLON.MeshBuilder.CreateGround('ground', {
                 width: 100,
                 height: 100,
                 subdivisions: 100
             }, scene);
-            
+
             ground.actionManager = new BABYLON.ActionManager(scene);
             ground.actionManager.registerAction(
                 new BABYLON.ExecuteCodeAction(
                     BABYLON.ActionManager.OnPickTrigger,
-                    (evt) => {
-                        if (selectedTool) {
-                            const pickResult = scene.pick(scene.pointerX, scene.pointerY);
-                            if (pickResult.hit && pickResult.pickedMesh === ground) {
-                                const worldPos = pickResult.pickedPoint;
-                                console.log('Picked position:', worldPos);
-                                const id = `${selectedTool.replace('.glb', '')}_${generateUUID()}`;
-                                mapEngine.addObject({
-                                    id: id,
-                                    model: selectedTool,
-                                    position: { 
-                                        x: worldPos.x, 
-                                        y: 0, 
-                                        z: worldPos.z 
-                                    },
-                                    rotation: { x: 0, y: 0, z: 0 },
-                                    scale: { x: 1, y: 1, z: 1 }
-                                });
-                                
-                                // Clear selected tool and remove selection highlight
-                                selectedTool = null;
-                                document.querySelectorAll('.tool-item').forEach(item => {
-                                    item.classList.remove('selected');
-                                });
-                            }
+                    async () => {
+                        if (!selectedToolModel) return;
+
+                        const pickResult = scene.pick(scene.pointerX, scene.pointerY);
+                        if (!pickResult.hit || pickResult.pickedMesh !== ground) {
+                            return;
+                        }
+
+                        try {
+                            const objectData = buildPlacedObjectData(pickResult.pickedPoint);
+                            await mapEngine.addObject(objectData);
+                            setStatus(`Placed ${selectedToolModel.display_name}`, '#4CAF50');
+                            resetStatus();
+                            clearSelectedToolSelection();
+                        } catch (error) {
+                            console.error('Error placing object:', error);
+                            setStatus(`Error placing object: ${error.message}`, '#ff4444');
                         }
                     }
                 )
             );
-            
-            // Grid material
+
             gridMaterial = new BABYLON.GridMaterial('groundMat', scene);
             gridMaterial.majorUnitFrequency = 5;
             gridMaterial.minorUnitVisibility = 0.45;
@@ -1143,95 +2074,29 @@
             gridMaterial.lineColor = new BABYLON.Color3(0.3, 0.3, 0.4);
             ground.material = gridMaterial;
 
-            // Setup object picking
             scene.onPointerDown = (evt, pickResult) => {
-                if (evt.button === 0) { // Left click
-                    console.log('Click detected');
-                    
-                    if (pickResult.hit && pickResult.pickedMesh !== ground) {
-                        const pickedMesh = pickResult.pickedMesh;
-                        console.log('Picked mesh:', {
-                            id: pickedMesh.id,
-                            name: pickedMesh.name,
-                            metadata: pickedMesh.metadata
-                        });
+                if (evt.button !== 0) return;
 
-                        // Get the ID either from metadata (for child meshes) or directly (for root)
-                        const objectId = pickedMesh.metadata?.parentId || pickedMesh.id;
-                        
-                        if (mapEngine.instances.has(objectId)) {
-                            selectedObject = mapEngine.instances.get(objectId);
-                            console.log('Selected object:', {
-                                id: objectId,
-                                position: selectedObject.position,
-                                rotation: selectedObject.rotation
-                            });
-                            
-                            updateSelectionInfo();
-                            camera.detachControl(canvas);
-                        } else {
-                            console.log('No instance found for ID:', objectId);
-                        }
-                    } else {
-                        // Clicked on ground or empty space
-                        selectedObject = null;
+                if (pickResult.hit && pickResult.pickedMesh !== ground) {
+                    const pickedMesh = pickResult.pickedMesh;
+                    const objectId = pickedMesh.metadata?.parentId || pickedMesh.id;
+
+                    if (mapEngine.instances.has(objectId)) {
+                        selectedObject = mapEngine.instances.get(objectId);
                         updateSelectionInfo();
-                        camera.attachControl(canvas, true);
+                        camera.detachControl(canvas);
                     }
+                } else {
+                    selectedObject = null;
+                    updateSelectionInfo();
+                    camera.attachControl(canvas, true);
                 }
             };
-            
-            // Function to update the selected object UI
-            function updateSelectedObjectUI() {
-                if (selectedObject) {
-                    document.getElementById('selected-id').textContent = selectedObject.id;
-                    document.getElementById('selected-position').textContent =
-                        `X: ${selectedObject.position.x.toFixed(2)}, Z: ${selectedObject.position.z.toFixed(2)}`;
-                    document.getElementById('selected-rotation').textContent =
-                        `${(selectedObject.rotation.y * 180 / Math.PI).toFixed(0)}°`;
-                } else {
-                    document.getElementById('selected-id').textContent = 'None';
-                    document.getElementById('selected-position').textContent = 'X: 0.00, Z: 0.00';
-                    document.getElementById('selected-rotation').textContent = '0°';
-                }
-            }
-            
+
             return scene;
         };
 
-        const init = () => {
-            canvas = document.getElementById('renderCanvas');
-            engine = new BABYLON.Engine(canvas, true);
-            
-            const scene = createScene();
-            mapEngine = new MapEngine(scene);
-            
-            // Immediately load model data
-            mapEngine.loadModelData().then(() => {
-                console.log('Model data loaded in init');
-            }).catch(error => {
-                console.error('Error loading model data in init:', error);
-            });
-            
-            setupControls();
-            initToolbox();
-            setupToolboxControls();
-            setupMapControls();
-            setupSelectionControls();
-            
-            // Setup keyboard events
-            window.addEventListener('keydown', handleKeyboardInput);
-            window.addEventListener('keyup', (event) => {
-                if (event.key === 'Shift') {
-                    isShiftPressed = false;
-                }
-            });
-            
-            engine.runRenderLoop(() => scene.render());
-            window.addEventListener('resize', () => engine.resize());
-        };
-
-        const setupControls = () => {
+        function setupControls() {
             const loadMapBtn = document.getElementById('loadMapBtn');
             const reloadMapBtn = document.getElementById('reloadMapBtn');
             const saveMapBtn = document.getElementById('saveMapBtn');
@@ -1239,101 +2104,63 @@
             const saveMapName = document.getElementById('saveMapName');
             const showGridCheck = document.getElementById('showGrid');
             const gridSizeInput = document.getElementById('gridSize');
-            const status = document.getElementById('status');
-            
+
             loadMapBtn.addEventListener('click', async () => {
                 try {
-                    status.textContent = 'Loading map...';
-                    console.log('Loading map data...');
+                    setStatus('Loading map...');
                     const mapData = await mapEngine.loadMapData(mapSelect.value);
-                    
-                    // Update dropdown text to match loaded map name
                     const option = mapSelect.options[mapSelect.selectedIndex];
                     option.text = mapData.name;
-                    
-                    console.log('Rendering map...');
-                    await mapEngine.renderMap();
-                    status.textContent = 'Map loaded successfully!';
                     saveMapName.value = mapData.name;
+                    await mapEngine.renderMap();
+                    setStatus('Map loaded successfully!', '#4CAF50');
+                    resetStatus();
                 } catch (error) {
-                    const errorMessage = `Error: ${error.message}. Check console for details.`;
-                    status.textContent = errorMessage;
-                    status.style.color = '#ff4444';
                     console.error('Error in map loading:', error);
+                    setStatus(`Error: ${error.message}. Check console for details.`, '#ff4444');
                 }
             });
-            
+
             reloadMapBtn.addEventListener('click', async () => {
                 try {
-                    status.textContent = 'Reloading map...';
-                    console.log('Reloading map data...');
+                    setStatus('Reloading map...');
                     await mapEngine.loadMapData(mapSelect.value);
-                    console.log('Re-rendering map...');
                     await mapEngine.renderMap();
-                    status.textContent = 'Map reloaded successfully!';
+                    setStatus('Map reloaded successfully!', '#4CAF50');
+                    resetStatus();
                 } catch (error) {
-                    const errorMessage = `Error: ${error.message}. Check console for details.`;
-                    status.textContent = errorMessage;
-                    status.style.color = '#ff4444';
                     console.error('Error in map reloading:', error);
+                    setStatus(`Error: ${error.message}. Check console for details.`, '#ff4444');
                 }
             });
 
             saveMapBtn.addEventListener('click', async () => {
                 const newMapName = saveMapName.value.trim() || 'Demo Map';
-                const currentMapName = mapSelect.options[mapSelect.selectedIndex].text;
-                const isRename = currentMapName !== newMapName;
-                
-                status.textContent = isRename ? 'Renaming and saving map...' : 'Saving map...';
-                
+                setStatus('Saving map...');
+
                 try {
-                    if (isRename) {
-                        // Get the current map data to verify ID
-                        const mapData = await mapEngine.getMapData();
-                        
-                        // Send request to rename the map
-                        const response = await fetch('/rename-map', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                mapId: mapData.id,
-                                oldName: currentMapName,
-                                newName: newMapName
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (!response.ok) {
-                            throw new Error(result.error || 'Failed to rename map');
-                        }
-                        
-                        // Reload the page to refresh the map data
-                        window.location.reload();
-                    } else {
-                        // Regular save without rename
-                        await mapEngine.saveMap(newMapName);
-                        status.textContent = `Map saved successfully as "${newMapName}"`;
-                        status.style.color = '#4CAF50';
-                    }
+                    const ok = await mapEngine.saveMap(newMapName);
+                    if (!ok) return;
+
+                    const option = mapSelect.options[mapSelect.selectedIndex];
+                    option.text = newMapName;
+                    saveMapName.value = newMapName;
+                    setStatus(`Map saved successfully as "${newMapName}"`, '#4CAF50');
+                    resetStatus();
                 } catch (error) {
-                    status.textContent = `Error: ${error.message}`;
-                    status.style.color = '#ff4444';
                     console.error('Error in map saving:', error);
+                    setStatus(`Error: ${error.message}`, '#ff4444');
                 }
             });
-            
-            // Add handler for map selection change
+
             mapSelect.addEventListener('change', () => {
                 saveMapName.value = mapSelect.options[mapSelect.selectedIndex].text;
             });
-            
+
             showGridCheck.addEventListener('change', () => {
                 ground.material = showGridCheck.checked ? gridMaterial : null;
             });
-            
+
             gridSizeInput.addEventListener('change', () => {
                 const size = parseFloat(gridSizeInput.value);
                 if (size > 0) {
@@ -1341,29 +2168,63 @@
                     gridMaterial.majorUnitFrequency = 5 / size;
                 }
             });
-        };
+        }
 
-        // Initialize the application
-        window.addEventListener('DOMContentLoaded', () => {
-            init();
-        });
+        async function init() {
+            canvas = document.getElementById('renderCanvas');
+            engine = new BABYLON.Engine(canvas, true);
+            scene = createScene();
+            mapEngine = new MapEngine(scene);
 
-        // Also update the initial map load
-        window.addEventListener('DOMContentLoaded', async () => {
+            setupControls();
+            setupToolboxControls();
+            setupMapControls();
+            setupSelectionControls();
+            setupModelModal();
+            setupConfirmationModal();
+
+            document.addEventListener('click', event => {
+                if (!event.target.closest('.tool-menu-wrapper')) {
+                    closeActiveToolMenu();
+                }
+            });
+
+            window.addEventListener('keydown', handleKeyboardInput);
+            window.addEventListener('keyup', event => {
+                if (event.key === 'Shift') {
+                    isShiftPressed = false;
+                }
+                if (event.key === 'Escape') {
+                    closeActiveToolMenu();
+                    closeModelModal();
+                }
+            });
+
+            engine.runRenderLoop(() => scene.render());
+            window.addEventListener('resize', () => engine.resize());
+
             try {
-                // First load model data
                 await mapEngine.loadModelData();
-                console.log('Model data loaded successfully in initial load');
-                
-                // Then load map data
+                await initToolbox();
                 const mapData = await mapEngine.loadMapData('map_data.json');
+                const mapSelect = document.getElementById('mapSelect');
+                const saveMapName = document.getElementById('saveMapName');
                 const option = mapSelect.options[mapSelect.selectedIndex];
                 option.text = mapData.name;
                 saveMapName.value = mapData.name;
                 await mapEngine.renderMap();
+                setStatus('Ready');
             } catch (error) {
                 console.error('Error loading initial map or model data:', error);
+                setStatus(`Error loading initial map or model data: ${error.message}`, '#ff4444');
             }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            init().catch(error => {
+                console.error('Failed to initialize map designer:', error);
+                setStatus(`Failed to initialize map designer: ${error.message}`, '#ff4444');
+            });
         });
     </script>
 </body>
